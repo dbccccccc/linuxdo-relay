@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -25,11 +26,36 @@ type AppContext struct {
 	JWTSecret string
 }
 
+// isAPIRoute checks if the path is an API route
+func isAPIRoute(path string) bool {
+	apiPrefixes := []string{
+		"/healthz",
+		"/auth/",
+		"/me",
+		"/admin/",
+		"/v1/",
+		"/api/",
+	}
+	for _, prefix := range apiPrefixes {
+		if strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 func SetupRoutes(r *gin.Engine, app *AppContext) {
 	// health check
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
+
+	// serve static frontend files
+	// Vite builds put all assets (JS, CSS, images) in /assets
+	r.Static("/assets", "./web/dist/assets")
+
+	// serve other static files (favicon, etc.) from root
+	r.StaticFile("/favicon.ico", "./web/dist/favicon.ico")
 
 	// auth routes (LinuxDo OAuth)
 	RegisterAuthRoutes(r, app)
@@ -400,6 +426,15 @@ func SetupRoutes(r *gin.Engine, app *AppContext) {
 	// admin & relay routes (protected)
 	RegisterAdminRoutes(authGroup, app)
 	RegisterRelayRoutes(authGroup, app)
+
+	// SPA fallback: send other GET requests to the built index.html so React Router can handle them
+	r.NoRoute(func(c *gin.Context) {
+		if c.Request.Method == http.MethodGet && !isAPIRoute(c.Request.URL.Path) {
+			c.File("./web/dist/index.html")
+			return
+		}
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+	})
 }
 
 /*
