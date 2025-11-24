@@ -41,23 +41,13 @@ services:
     restart: unless-stopped
     working_dir: /app
     ports:
-      - "8080:8080"
+      - "${APP_PORT:-8080}:8080"
+    env_file:
+      - .env
     environment:
-      APP_HTTP_LISTEN: ":8080"
-      APP_PG_DSN: "postgres://relay:relay@postgres:5432/linuxdo_relay?sslmode=disable"
+      # 数据库和 Redis 使用 Docker 内部网络地址
+      APP_PG_DSN: "postgres://${POSTGRES_USER:-relay}:${POSTGRES_PASSWORD:-relay}@postgres:5432/${POSTGRES_DB:-linuxdo_relay}?sslmode=disable"
       APP_REDIS_ADDR: "redis:6379"
-      APP_REDIS_PASSWORD: ""
-      APP_JWT_SECRET: "${APP_JWT_SECRET:-change-me-please-use-a-secure-secret-at-least-32-characters}"
-      APP_SIGNUP_CREDITS: "${APP_SIGNUP_CREDITS:-100}"
-      APP_DEFAULT_MODEL_CREDIT_COST: "${APP_DEFAULT_MODEL_CREDIT_COST:-1}"
-      # LinuxDo OAuth 配置（必须修改）
-      APP_LINUXDO_CLIENT_ID: "${APP_LINUXDO_CLIENT_ID:-your-linuxdo-client-id}"
-      APP_LINUXDO_CLIENT_SECRET: "${APP_LINUXDO_CLIENT_SECRET:-your-linuxdo-client-secret}"
-      APP_LINUXDO_REDIRECT_URL: "${APP_LINUXDO_REDIRECT_URL:-http://localhost:8080/auth/linuxdo/callback}"
-      # 可选：如不设置将使用 config.go 里的默认 LinuxDo OAuth 端点
-      # APP_LINUXDO_AUTH_URL: "https://linux.do/oauth2/authorize"
-      # APP_LINUXDO_TOKEN_URL: "https://linux.do/oauth2/token"
-      # APP_LINUXDO_USERINFO_URL: "https://linux.do/api/user"
     depends_on:
       postgres:
         condition: service_healthy

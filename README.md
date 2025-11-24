@@ -170,9 +170,9 @@ export APP_LINUXDO_CLIENT_SECRET="your-client-secret"
 export APP_LINUXDO_REDIRECT_URL="http://localhost:8080/auth/linuxdo/callback"
 
 # 可选：自定义 LinuxDo OAuth 端点
-# export APP_LINUXDO_AUTH_URL="https://linux.do/oauth2/authorize"
-# export APP_LINUXDO_TOKEN_URL="https://linux.do/oauth2/token"
-# export APP_LINUXDO_USERINFO_URL="https://linux.do/api/user"
+# export APP_LINUXDO_AUTH_URL="https://connect.linux.do/oauth2/authorize"
+# export APP_LINUXDO_TOKEN_URL="https://connect.linux.do/oauth2/token"
+# export APP_LINUXDO_USERINFO_URL="https://connect.linux.do/api/user"
 ```
 
 #### 3. 启动后端
@@ -214,8 +214,8 @@ npm run dev
 
 ### LinuxDo OAuth 配置
 
-1. 访问 LinuxDo 开发者设置：https://linux.do/admin/api/keys
-2. 创建新的 OAuth2 应用
+1. 访问 LinuxDo Connect：https://connect.linux.do/
+2. 点击"我的应用接入" - "申请新接入"
 3. 设置回调地址：`http://your-domain:8080/auth/linuxdo/callback`
 4. 获取 Client ID 和 Client Secret
 5. 将凭证配置到环境变量中

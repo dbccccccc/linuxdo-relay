@@ -16,9 +16,13 @@ import (
 
 // linuxDoUserInfo is a minimal view of LinuxDo's user info response.
 type linuxDoUserInfo struct {
-	ID       string `json:"id"`
-	Username string `json:"username"`
-	Name     string `json:"name"`
+	ID             string `json:"id"`
+	Username       string `json:"username"`
+	Name           string `json:"name"`
+	AvatarTemplate string `json:"avatar_template"`
+	Active         bool   `json:"active"`
+	TrustLevel     int    `json:"trust_level"`
+	Silenced       bool   `json:"silenced"`
 }
 
 // RegisterAuthRoutes registers LinuxDo OAuth-based auth endpoints.
@@ -95,7 +99,12 @@ func RegisterAuthRoutes(r *gin.Engine, app *AppContext) {
 
 		var info linuxDoUserInfo
 		if err := json.Unmarshal(body, &info); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse userinfo"})
+			// Include response body for debugging
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "failed to parse userinfo",
+				"details": err.Error(),
+				"body":    string(body),
+			})
 			return
 		}
 
@@ -108,11 +117,12 @@ func RegisterAuthRoutes(r *gin.Engine, app *AppContext) {
 			username = info.Name
 		}
 		if linuxID == "" || username == "" {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "userinfo missing id or username"})
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "userinfo missing id or username",
+				"info":  info,
+			})
 			return
-		}
-
-		// Find or create local user.
+		} // Find or create local user.
 		signupCredits := app.Config.SignupCredits
 		if signupCredits < 0 {
 			signupCredits = 0
