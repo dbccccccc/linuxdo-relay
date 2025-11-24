@@ -1,0 +1,81 @@
+name: Bug Report
+description: 报告一个 bug
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢您花时间填写此 bug 报告！
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug 描述
+      description: 请清晰、简洁地描述这个 bug
+      placeholder: 告诉我们发生了什么
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 如何复现这个问题
+      placeholder: |
+        1. 访问 '...'
+        2. 点击 '...'
+        3. 滚动到 '...'
+        4. 看到错误
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+      description: 描述您期望发生什么
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+      description: 描述实际发生了什么
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境信息
+      description: 请提供您的环境信息
+      placeholder: |
+        - 操作系统: [e.g. Ubuntu 22.04, Windows 11, macOS 13]
+        - Go 版本: [e.g. 1.23]
+        - PostgreSQL 版本: [e.g. 14.5]
+        - Redis 版本: [e.g. 7.0]
+        - 浏览器: [e.g. Chrome 120, Firefox 121]
+        - 部署方式: [Docker / 二进制 / 源码]
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志输出
+      description: 如果适用，请粘贴相关日志输出
+      render: shell
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 截图
+      description: 如果适用，请添加截图来说明问题
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 附加信息
+      description: 添加任何其他关于问题的信息

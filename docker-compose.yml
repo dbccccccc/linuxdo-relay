@@ -1,0 +1,76 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:14
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: relay
+      POSTGRES_PASSWORD: relay
+      POSTGRES_DB: linuxdo_relay
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U relay"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  linuxdo-relay:
+    image: dbccccccc/linuxdo-relay:latest
+    # 如果要本地构建，注释上面的 image 行，取消注释下面的 build 行
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "8080:8080"
+    environment:
+      APP_HTTP_LISTEN: ":8080"
+      APP_PG_DSN: "postgres://relay:relay@postgres:5432/linuxdo_relay?sslmode=disable"
+      APP_REDIS_ADDR: "redis:6379"
+      APP_REDIS_PASSWORD: ""
+      APP_JWT_SECRET: "${APP_JWT_SECRET:-change-me-please-use-a-secure-secret-at-least-32-characters}"
+      APP_SIGNUP_CREDITS: "${APP_SIGNUP_CREDITS:-100}"
+      APP_DEFAULT_MODEL_CREDIT_COST: "${APP_DEFAULT_MODEL_CREDIT_COST:-1}"
+      # LinuxDo OAuth 配置（必须修改）
+      APP_LINUXDO_CLIENT_ID: "${APP_LINUXDO_CLIENT_ID:-your-linuxdo-client-id}"
+      APP_LINUXDO_CLIENT_SECRET: "${APP_LINUXDO_CLIENT_SECRET:-your-linuxdo-client-secret}"
+      APP_LINUXDO_REDIRECT_URL: "${APP_LINUXDO_REDIRECT_URL:-http://localhost:8080/auth/linuxdo/callback}"
+      # 可选：如不设置将使用 config.go 里的默认 LinuxDo OAuth 端点
+      # APP_LINUXDO_AUTH_URL: "https://linux.do/oauth2/authorize"
+      # APP_LINUXDO_TOKEN_URL: "https://linux.do/oauth2/token"
+      # APP_LINUXDO_USERINFO_URL: "https://linux.do/api/user"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  postgres-data:
+  redis-data:
+

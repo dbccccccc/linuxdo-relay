@@ -1,0 +1,238 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-backend:
+    name: Build Backend
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, windows, darwin]
+        goarch: [amd64, arm64]
+        exclude:
+          - goos: windows
+            goarch: arm64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          OUTPUT_NAME="linuxdo-relay-${{ matrix.goos }}-${{ matrix.goarch }}"
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            OUTPUT_NAME="${OUTPUT_NAME}.exe"
+          fi
+          go build -ldflags="-s -w -X main.Version=${{ github.ref_name }}" -o "${OUTPUT_NAME}" ./cmd/server
+          
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: linuxdo-relay-*
+
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        working-directory: ./web
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ./web
+        run: npm run build
+
+      - name: Create frontend archive
+        run: |
+          cd web/dist
+          tar -czf ../../linuxdo-relay-web.tar.gz .
+          cd ../..
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend
+          path: linuxdo-relay-web.tar.gz
+
+  build-docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ secrets.DOCKER_USERNAME }}/linuxdo-relay
+            ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [build-backend, build-frontend, build-docker]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          # Backend binaries
+          find artifacts/backend-* -type f -exec cp {} release/ \;
+          # Frontend
+          cp artifacts/frontend/linuxdo-relay-web.tar.gz release/
+          # Migrations
+          tar -czf release/migrations.tar.gz migrations/
+          # Docker compose
+          cp docker-compose.yml release/
+          # Create checksums
+          cd release
+          sha256sum * > checksums.txt
+          cd ..
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          cat << EOF > release_notes.md
+          ## 🚀 LinuxDo-Relay ${{ github.ref_name }}
+
+          ### 📦 下载说明
+
+          #### 二进制文件
+          - \`linuxdo-relay-linux-amd64\`: Linux (x86_64)
+          - \`linuxdo-relay-linux-arm64\`: Linux (ARM64)
+          - \`linuxdo-relay-darwin-amd64\`: macOS (Intel)
+          - \`linuxdo-relay-darwin-arm64\`: macOS (Apple Silicon)
+          - \`linuxdo-relay-windows-amd64.exe\`: Windows (x86_64)
+
+          #### 前端静态文件
+          - \`linuxdo-relay-web.tar.gz\`: 前端构建产物
+
+          #### 数据库迁移
+          - \`migrations.tar.gz\`: 数据库迁移脚本
+
+          ### 🐳 Docker 镜像
+
+          \`\`\`bash
+          # Docker Hub
+          docker pull ${{ secrets.DOCKER_USERNAME }}/linuxdo-relay:${{ github.ref_name }}
+          
+          # GitHub Container Registry
+          docker pull ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          \`\`\`
+
+          ### 📖 快速开始
+
+          #### 使用二进制文件
+
+          1. 下载对应平台的二进制文件
+          2. 下载 \`migrations.tar.gz\` 并解压
+          3. 配置环境变量（参考 README.md）
+          4. 初始化数据库：
+             \`\`\`bash
+             psql -d linuxdo_relay -f migrations/001_init.sql
+             psql -d linuxdo_relay -f migrations/002_logs.sql
+             psql -d linuxdo_relay -f migrations/003_credits.sql
+             psql -d linuxdo_relay -f migrations/004_check_in.sql
+             \`\`\`
+          5. 运行程序：\`./linuxdo-relay-linux-amd64\`
+
+          #### 使用 Docker Compose
+
+          1. 下载 \`docker-compose.yml\`
+          2. 配置环境变量
+          3. 运行：\`docker-compose up -d\`
+
+          ### 📋 更新日志
+
+          详见提交历史。
+
+          ### ⚠️ 重要提示
+
+          - 首次部署请务必配置 \`APP_JWT_SECRET\` 和 LinuxDo OAuth 凭证
+          - 生产环境建议使用 HTTPS
+          - 定期备份数据库
+
+          ### 🔍 验证下载
+
+          使用 \`checksums.txt\` 验证文件完整性：
+
+          \`\`\`bash
+          sha256sum -c checksums.txt
+          \`\`\`
+
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release/*
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

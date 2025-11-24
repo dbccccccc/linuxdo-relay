@@ -1,0 +1,38 @@
+name: Question
+description: 提出问题或寻求帮助
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        在提问之前，请先查看 [README.md](https://github.com/dbccccccc/linuxdo-relay/blob/main/README.md) 和 [ADMIN_GUIDE.md](https://github.com/dbccccccc/linuxdo-relay/blob/main/ADMIN_GUIDE.md)
+
+  - type: textarea
+    id: question
+    attributes:
+      label: 问题
+      description: 您想问什么？
+      placeholder: 请详细描述您的问题
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 背景信息
+      description: 提供相关的背景信息
+      placeholder: |
+        - 您尝试做什么？
+        - 您遇到了什么困难？
+        - 您已经尝试过什么？
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境信息
+      description: 如果相关，请提供环境信息
+      placeholder: |
+        - 部署方式: [Docker / 二进制 / 源码]
+        - 版本: [e.g. v1.0.0]
+        - 操作系统: [e.g. Ubuntu 22.04]
