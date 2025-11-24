@@ -17,7 +17,7 @@ const (
 // User represents a local user mapped from LinuxDo account.
 type User struct {
 	ID              uint       `gorm:"primaryKey"`
-	LinuxDoUserID   string     `gorm:"column:linuxdo_user_id;uniqueIndex;size:64;not null"`
+	LinuxDoUserID   int64      `gorm:"column:linuxdo_user_id;uniqueIndex;not null"`
 	LinuxDoUsername string     `gorm:"column:linuxdo_username;size:255;not null"`
 	Role            string     `gorm:"size:16;not null"`
 	Level           int        `gorm:"not null;default:1"`

@@ -16,7 +16,7 @@ import (
 
 // linuxDoUserInfo is a minimal view of LinuxDo's user info response.
 type linuxDoUserInfo struct {
-	ID             string `json:"id"`
+	ID             int    `json:"id"`
 	Username       string `json:"username"`
 	Name           string `json:"name"`
 	AvatarTemplate string `json:"avatar_template"`
@@ -108,17 +108,21 @@ func RegisterAuthRoutes(r *gin.Engine, app *AppContext) {
 			return
 		}
 
-		linuxID := info.ID
-		if linuxID == "" {
-			linuxID = info.Username
+		linuxID := int64(info.ID)
+		if linuxID == 0 {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "userinfo missing id",
+				"info":  info,
+			})
+			return
 		}
 		username := info.Username
 		if username == "" {
 			username = info.Name
 		}
-		if linuxID == "" || username == "" {
+		if username == "" {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "userinfo missing id or username",
+				"error": "userinfo missing username",
 				"info":  info,
 			})
 			return
