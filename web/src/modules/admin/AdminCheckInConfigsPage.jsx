@@ -1,21 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Button,
-  Card,
-  Form,
-  Modal,
-  Popconfirm,
-  Space,
-  Table,
-  Toast,
-  Typography,
-} from '@douyinfe/semi-ui';
+import { Button, Card, Form, Modal, Popconfirm, Space, Table, Toast, Typography } from '@douyinfe/semi-ui';
 import axios from 'axios';
 import { useAuth } from '../auth/AuthContext.jsx';
 
 const { Title, Text } = Typography;
 
-export function AdminQuotaRulesPage() {
+export function AdminCheckInConfigsPage() {
   const { token, isAdmin } = useAuth();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -31,11 +21,11 @@ export function AdminQuotaRulesPage() {
     if (!token || !isAdmin) return;
     setLoading(true);
     try {
-      const res = await axios.get('/admin/quota_rules', { headers });
+      const res = await axios.get('/admin/check_in_configs', { headers });
       setList(res.data || []);
     } catch (err) {
-      console.error('fetch quota rules failed', err);
-      Toast.error('获取配额规则失败');
+      console.error('fetch check-in configs failed', err);
+      Toast.error('获取签到配置失败');
     } finally {
       setLoading(false);
     }
@@ -49,18 +39,18 @@ export function AdminQuotaRulesPage() {
     async (values) => {
       try {
         if (editing) {
-          await axios.put(`/admin/quota_rules/${editing.id}`, values, { headers });
-          Toast.success('更新配额规则成功');
+          await axios.put(`/admin/check_in_configs/${editing.id}`, values, { headers });
+          Toast.success('更新签到配置成功');
         } else {
-          await axios.post('/admin/quota_rules', values, { headers });
-          Toast.success('创建配额规则成功');
+          await axios.post('/admin/check_in_configs', values, { headers });
+          Toast.success('创建签到配置成功');
         }
         setVisible(false);
         setEditing(null);
         fetchList();
       } catch (err) {
-        console.error('save quota rule failed', err);
-        const msg = err.response?.data?.error || '保存配额规则失败';
+        console.error('save check-in config failed', err);
+        const msg = err.response?.data?.error || '保存签到配置失败';
         Toast.error(msg);
       }
     },
@@ -70,12 +60,12 @@ export function AdminQuotaRulesPage() {
   const handleDelete = useCallback(
     async (row) => {
       try {
-        await axios.delete(`/admin/quota_rules/${row.id}`, { headers });
-        Toast.success('删除配额规则成功');
+        await axios.delete(`/admin/check_in_configs/${row.id}`, { headers });
+        Toast.success('删除签到配置成功');
         fetchList();
       } catch (err) {
-        console.error('delete quota rule failed', err);
-        const msg = err.response?.data?.error || '删除配额规则失败';
+        console.error('delete check-in config failed', err);
+        const msg = err.response?.data?.error || '删除签到配置失败';
         Toast.error(msg);
       }
     },
@@ -91,9 +81,9 @@ export function AdminQuotaRulesPage() {
   }
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto' }}>
+    <div style={{ maxWidth: 1000, margin: '0 auto' }}>
       <Title heading={4} style={{ marginBottom: 16 }}>
-        配额规则
+        签到配置
       </Title>
       <Card>
         <div style={{ marginBottom: 16, textAlign: 'right' }}>
@@ -104,7 +94,7 @@ export function AdminQuotaRulesPage() {
               setVisible(true);
             }}
           >
-            新建规则
+            新建配置
           </Button>
         </div>
         <Table
@@ -113,10 +103,21 @@ export function AdminQuotaRulesPage() {
           dataSource={list}
           columns={[
             { title: 'ID', dataIndex: 'id', width: 80 },
-            { title: '用户等级', dataIndex: 'level', width: 120 },
-            { title: '模型前缀', dataIndex: 'model_pattern' },
-            { title: '最大请求数', dataIndex: 'max_requests', width: 160 },
-            { title: '时间窗口(秒)', dataIndex: 'window_seconds', width: 180 },
+            { title: '用户等级', dataIndex: 'level', width: 100 },
+            { title: '基础奖励', dataIndex: 'base_reward', width: 100 },
+            { title: '衰减阈值', dataIndex: 'decay_threshold', width: 100 },
+            { 
+              title: '最低倍率(%)', 
+              dataIndex: 'min_multiplier_percent', 
+              width: 120,
+              render: (v) => `${v}%`
+            },
+            {
+              title: '更新时间',
+              dataIndex: 'updated_at',
+              width: 180,
+              render: (v) => new Date(v).toLocaleString('zh-CN'),
+            },
             {
               title: '操作',
               width: 160,
@@ -133,7 +134,7 @@ export function AdminQuotaRulesPage() {
                   </Button>
                   <Popconfirm
                     title='确认删除'
-                    content={`确定要删除等级 ${row.level} 模型 "${row.model_pattern}" 的配额规则吗？`}
+                    content={`确定要删除等级 ${row.level} 的签到配置吗？`}
                     onConfirm={() => handleDelete(row)}
                   >
                     <Button
@@ -155,15 +156,15 @@ export function AdminQuotaRulesPage() {
         visible={visible}
         onCancel={() => setVisible(false)}
         footer={null}
-        title={editing ? '编辑规则' : '新建规则'}
+        title={editing ? '编辑签到配置' : '新建签到配置'}
       >
         <Form
           initValues={
             editing || {
               level: 1,
-              model_pattern: '',
-              max_requests: 20,
-              window_seconds: 3600,
+              base_reward: 100,
+              decay_threshold: 1000,
+              min_multiplier_percent: 10,
             }
           }
           onSubmit={handleSubmit}
@@ -172,28 +173,38 @@ export function AdminQuotaRulesPage() {
             field='level'
             label='用户等级'
             min={1}
+            precision={0}
             required
             style={{ width: '100%' }}
-          />
-          <Form.Input
-            field='model_pattern'
-            label='模型前缀'
-            placeholder='例如 gpt-4'
-            required
+            extraText='签到奖励将根据用户等级匹配对应配置'
           />
           <Form.InputNumber
-            field='max_requests'
-            label='最大请求次数'
+            field='base_reward'
+            label='基础奖励'
             min={1}
+            precision={0}
             required
             style={{ width: '100%' }}
+            extraText='每次签到获得的基础积分数量'
           />
           <Form.InputNumber
-            field='window_seconds'
-            label='时间窗口(秒)'
+            field='decay_threshold'
+            label='衰减阈值'
             min={1}
+            precision={0}
             required
             style={{ width: '100%' }}
+            extraText='用户余额超过此值后，签到奖励会按比例衰减'
+          />
+          <Form.InputNumber
+            field='min_multiplier_percent'
+            label='最低倍率(%)'
+            min={1}
+            max={100}
+            precision={0}
+            required
+            style={{ width: '100%' }}
+            extraText='奖励衰减的最低百分比，例如10表示最低获得基础奖励的10%'
           />
           <div style={{ textAlign: 'right', marginTop: 16 }}>
             <Space>

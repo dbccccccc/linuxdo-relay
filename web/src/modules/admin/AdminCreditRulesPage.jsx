@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Card, Form, Modal, Space, Table, Typography } from '@douyinfe/semi-ui';
+import { Button, Card, Form, Modal, Popconfirm, Space, Table, Toast, Typography } from '@douyinfe/semi-ui';
 import axios from 'axios';
 import { useAuth } from '../auth/AuthContext.jsx';
 
@@ -25,6 +25,7 @@ export function AdminCreditRulesPage() {
       setList(res.data || []);
     } catch (err) {
       console.error('fetch credit rules failed', err);
+      Toast.error('获取积分规则失败');
     } finally {
       setLoading(false);
     }
@@ -39,14 +40,18 @@ export function AdminCreditRulesPage() {
       try {
         if (editing) {
           await axios.put(`/admin/model_credit_rules/${editing.id}`, values, { headers });
+          Toast.success('更新积分规则成功');
         } else {
           await axios.post('/admin/model_credit_rules', values, { headers });
+          Toast.success('创建积分规则成功');
         }
         setVisible(false);
         setEditing(null);
         fetchList();
       } catch (err) {
         console.error('save credit rule failed', err);
+        const msg = err.response?.data?.error || '保存积分规则失败';
+        Toast.error(msg);
       }
     },
     [editing, headers, fetchList],
@@ -56,9 +61,12 @@ export function AdminCreditRulesPage() {
     async (row) => {
       try {
         await axios.delete(`/admin/model_credit_rules/${row.id}`, { headers });
+        Toast.success('删除积分规则成功');
         fetchList();
       } catch (err) {
         console.error('delete credit rule failed', err);
+        const msg = err.response?.data?.error || '删除积分规则失败';
+        Toast.error(msg);
       }
     },
     [fetchList, headers],
@@ -117,14 +125,19 @@ export function AdminCreditRulesPage() {
                   >
                     编辑
                   </Button>
-                  <Button
-                    size='small'
-                    theme='borderless'
-                    type='danger'
-                    onClick={() => handleDelete(row)}
+                  <Popconfirm
+                    title='确认删除'
+                    content={`确定要删除模型前缀 "${row.model_pattern}" 的积分规则吗？`}
+                    onConfirm={() => handleDelete(row)}
                   >
-                    删除
-                  </Button>
+                    <Button
+                      size='small'
+                      theme='borderless'
+                      type='danger'
+                    >
+                      删除
+                    </Button>
+                  </Popconfirm>
                 </Space>
               ),
             },

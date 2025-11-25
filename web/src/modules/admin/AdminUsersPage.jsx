@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Card, Form, Modal, Space, Table, Tag, Typography, Select } from '@douyinfe/semi-ui';
+import { Button, Card, Form, Modal, Space, Table, Tag, Toast, Typography, Select } from '@douyinfe/semi-ui';
 import axios from 'axios';
 import { useAuth } from '../auth/AuthContext.jsx';
 
@@ -25,6 +25,9 @@ export function AdminUsersPage() {
     try {
       const res = await axios.get('/admin/users', { headers });
       setList(res.data || []);
+    } catch (err) {
+      console.error('fetch users failed', err);
+      Toast.error('获取用户列表失败');
     } finally {
       setLoading(false);
     }
@@ -38,10 +41,17 @@ export function AdminUsersPage() {
 
   const handleSubmit = useCallback(
     async (values) => {
-      await axios.put(`/admin/users/${editing.id}`, values, { headers });
-      setVisible(false);
-      setEditing(null);
-      fetchList();
+      try {
+        await axios.put(`/admin/users/${editing.id}`, values, { headers });
+        Toast.success('更新用户成功');
+        setVisible(false);
+        setEditing(null);
+        fetchList();
+      } catch (err) {
+        console.error('update user failed', err);
+        const msg = err.response?.data?.error || '更新用户失败';
+        Toast.error(msg);
+      }
     },
     [editing, headers, fetchList],
   );
@@ -52,11 +62,14 @@ export function AdminUsersPage() {
       setCreditSubmitting(true);
       try {
         await axios.post(`/admin/users/${creditTarget.id}/credits`, values, { headers });
+        Toast.success('调整积分成功');
         setCreditVisible(false);
         setCreditTarget(null);
         fetchList();
       } catch (err) {
         console.error('adjust credits failed', err);
+        const msg = err.response?.data?.error || '调整积分失败';
+        Toast.error(msg);
       } finally {
         setCreditSubmitting(false);
       }

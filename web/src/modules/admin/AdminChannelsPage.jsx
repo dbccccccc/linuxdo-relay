@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Button, Card, Form, Modal, Space, Table, Tag, Typography, Select } from '@douyinfe/semi-ui';
+import { Button, Card, Form, Modal, Popconfirm, Space, Table, Tag, Toast, Typography, Select } from '@douyinfe/semi-ui';
 import axios from 'axios';
 import { useAuth } from '../auth/AuthContext.jsx';
 
@@ -19,6 +19,9 @@ export function AdminChannelsPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       setList(res.data || []);
+    } catch (err) {
+      console.error('fetch channels failed', err);
+      Toast.error('获取渠道列表失败');
     } finally {
       setLoading(false);
     }
@@ -32,25 +35,40 @@ export function AdminChannelsPage() {
 
   const handleSubmit = useCallback(
     async (values) => {
-      const headers = { Authorization: `Bearer ${token}` };
-      if (editing?.id) {
-        await axios.put(`/admin/channels/${editing.id}`, values, { headers });
-      } else {
-        await axios.post('/admin/channels', values, { headers });
+      try {
+        const headers = { Authorization: `Bearer ${token}` };
+        if (editing?.id) {
+          await axios.put(`/admin/channels/${editing.id}`, values, { headers });
+          Toast.success('更新渠道成功');
+        } else {
+          await axios.post('/admin/channels', values, { headers });
+          Toast.success('创建渠道成功');
+        }
+        setVisible(false);
+        setEditing(null);
+        fetchList();
+      } catch (err) {
+        console.error('save channel failed', err);
+        const msg = err.response?.data?.error || '保存渠道失败';
+        Toast.error(msg);
       }
-      setVisible(false);
-      setEditing(null);
-      fetchList();
     },
     [editing, token, fetchList],
   );
 
   const handleDelete = useCallback(
     async (row) => {
-      await axios.delete(`/admin/channels/${row.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      fetchList();
+      try {
+        await axios.delete(`/admin/channels/${row.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        Toast.success('删除渠道成功');
+        fetchList();
+      } catch (err) {
+        console.error('delete channel failed', err);
+        const msg = err.response?.data?.error || '删除渠道失败';
+        Toast.error(msg);
+      }
     },
     [token, fetchList],
   );
@@ -111,14 +129,19 @@ export function AdminChannelsPage() {
                   >
                     编辑
                   </Button>
-                  <Button
-                    size='small'
-                    theme='borderless'
-                    type='danger'
-                    onClick={() => handleDelete(row)}
+                  <Popconfirm
+                    title='确认删除'
+                    content={`确定要删除渠道 "${row.name}" 吗？`}
+                    onConfirm={() => handleDelete(row)}
                   >
-                    删除
-                  </Button>
+                    <Button
+                      size='small'
+                      theme='borderless'
+                      type='danger'
+                    >
+                      删除
+                    </Button>
+                  </Popconfirm>
                 </Space>
               ),
             },

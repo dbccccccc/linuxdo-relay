@@ -79,6 +79,7 @@ func RegisterAdminRoutes(r *gin.RouterGroup, app *AppContext) {
 		var channels []models.Channel
 		if err := app.DB.Order("id ASC").Find(&channels).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list channels"})
+			return
 		}
 		c.JSON(http.StatusOK, channels)
 	})
@@ -87,6 +88,7 @@ func RegisterAdminRoutes(r *gin.RouterGroup, app *AppContext) {
 		var in models.Channel
 		if err := c.ShouldBindJSON(&in); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+			return
 		}
 		if in.Status == "" {
 			in.Status = models.ChannelStatusEn
@@ -96,6 +98,7 @@ func RegisterAdminRoutes(r *gin.RouterGroup, app *AppContext) {
 		var newModels []string
 		if err := json.Unmarshal([]byte(in.Models), &newModels); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid models JSON format"})
+			return
 		}
 
 		if err := validateModelUniqueness(app, 0, newModels); err != nil {

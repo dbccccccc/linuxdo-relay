@@ -8,6 +8,7 @@ import { AdminChannelsPage } from './modules/admin/AdminChannelsPage.jsx';
 import { AdminUsersPage } from './modules/admin/AdminUsersPage.jsx';
 import { AdminQuotaRulesPage } from './modules/admin/AdminQuotaRulesPage.jsx';
 import { AdminCreditRulesPage } from './modules/admin/AdminCreditRulesPage.jsx';
+import { AdminCheckInConfigsPage } from './modules/admin/AdminCheckInConfigsPage.jsx';
 import { AdminLogsPage } from './modules/admin/AdminLogsPage.jsx';
 import { AdminStatsPage } from './modules/admin/AdminStatsPage.jsx';
 import { useSetupStatus } from './modules/setup/useSetupStatus.js';
@@ -70,6 +71,9 @@ export default function App() {
               <Nav.Item itemKey='credit_rules'>
                 <Link to='/admin/credit_rules'>积分规则</Link>
               </Nav.Item>
+              <Nav.Item itemKey='check_in_configs'>
+                <Link to='/admin/check_in_configs'>签到配置</Link>
+              </Nav.Item>
               <Nav.Item itemKey='logs'>
                 <Link to='/admin/logs'>日志</Link>
               </Nav.Item>
@@ -88,6 +92,7 @@ export default function App() {
           <Route path='/admin/channels' element={<AdminChannelsPage />} />
           <Route path='/admin/quota_rules' element={<AdminQuotaRulesPage />} />
           <Route path='/admin/credit_rules' element={<AdminCreditRulesPage />} />
+          <Route path='/admin/check_in_configs' element={<AdminCheckInConfigsPage />} />
           <Route path='/admin/logs' element={<AdminLogsPage />} />
           <Route path='/admin/stats' element={<AdminStatsPage />} />
           <Route path='*' element={<MePage />} />
