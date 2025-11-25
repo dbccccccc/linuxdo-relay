@@ -38,7 +38,7 @@ RUN npm run build
 FROM alpine:latest
 
 # Install runtime dependencies
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata su-exec
 
 # Create app user
 RUN addgroup -g 1000 app && \
@@ -58,8 +58,9 @@ COPY migrations /app/migrations
 # Change ownership
 RUN chown -R app:app /app
 
-# Switch to app user
-USER app
+# Copy entrypoint script
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Expose port
 EXPOSE 8080
@@ -69,4 +70,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8080/healthz || exit 1
 
 # Run
-ENTRYPOINT ["/app/linuxdo-relay"]
+ENTRYPOINT ["/entrypoint.sh"]

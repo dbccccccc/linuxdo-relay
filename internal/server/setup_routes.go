@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -59,7 +60,11 @@ func (h *setupHandler) handleStatus(c *gin.Context) {
 		})
 		return
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("setup status: close db: %v", err)
+		}
+	}()
 
 	runner := migrate.NewRunner(db.DB, h.config.MigrationsDir)
 	res, err := runner.Check(c.Request.Context())
@@ -101,7 +106,11 @@ func (h *setupHandler) handleSaveDatabase(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("setup save db: close db: %v", err)
+		}
+	}()
 
 	store := runtimeconfig.NewStore(h.config.RuntimeConfigPath)
 	data, err := store.Load()
@@ -163,7 +172,11 @@ func (h *setupHandler) handleRunMigrations(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("setup migrate: close db: %v", err)
+		}
+	}()
 
 	runner := migrate.NewRunner(db.DB, h.config.MigrationsDir)
 	res, err := runner.ApplyPending(c.Request.Context(), force)

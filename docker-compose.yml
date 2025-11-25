@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:14
@@ -49,7 +47,7 @@ services:
       APP_REDIS_ADDR: "redis:6379"
       APP_RUNTIME_CONFIG_PATH: "/app/runtimeconfig/config.json"
     volumes:
-      - ./runtimeconfig:/app/runtimeconfig
+      - runtimeconfig-data:/app/runtimeconfig
     depends_on:
       postgres:
         condition: service_healthy
@@ -65,4 +63,5 @@ services:
 volumes:
   postgres-data:
   redis-data:
+  runtimeconfig-data:
 
