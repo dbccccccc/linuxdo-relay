@@ -1,9 +1,9 @@
 package server
 
 import (
-	"fmt"
 	"time"
 
+	"linuxdo-relay/internal/logger"
 	"linuxdo-relay/internal/models"
 
 	"github.com/gin-gonic/gin"
@@ -13,7 +13,7 @@ import (
 // main request handling paths.
 func nonBlockingSave(err error) {
 	if err != nil {
-		fmt.Println("log insert failed:", err)
+		logger.Error("log insert failed", "error", err)
 	}
 }
 

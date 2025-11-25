@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"linuxdo-relay/internal/logger"
 	"linuxdo-relay/internal/models"
 )
 
@@ -68,7 +69,7 @@ func QuotaMiddleware(app *AppContext) gin.HandlerFunc {
 		rule, err := findQuotaRuleForRequest(app, level, model)
 		if err != nil {
 			// Fail-open on DB errors.
-			fmt.Println("quota: failed to load rules:", err)
+			logger.Error("quota: failed to load rules", "error", err, "level", level, "model", model)
 			c.Next()
 			return
 		}
@@ -104,7 +105,7 @@ func QuotaMiddleware(app *AppContext) gin.HandlerFunc {
 		ctx := context.Background()
 		cnt, err := app.Redis.Incr(ctx, key).Result()
 		if err != nil {
-			fmt.Println("quota: redis error:", err)
+			logger.Error("quota: redis error", "error", err, "key", key)
 			c.Next()
 			return
 		}

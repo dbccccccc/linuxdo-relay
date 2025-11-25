@@ -9,6 +9,7 @@ import (
 
 	"linuxdo-relay/internal/auth"
 	"linuxdo-relay/internal/config"
+	"linuxdo-relay/internal/logger"
 	"linuxdo-relay/internal/server"
 	"linuxdo-relay/internal/storage"
 	"linuxdo-relay/internal/storage/migrate"
@@ -30,9 +31,19 @@ func main() {
 	if setupMode {
 		server.RegisterSetupWizardRoutes(r, cfg)
 	} else {
-		// init DB & Redis
-		db := storage.NewDB(cfg.PostgresDSN)
-		redisClient := storage.NewRedis(cfg.RedisAddr, cfg.RedisPassword)
+		// init DB with connection pooling
+		db, err := storage.OpenDB(cfg.PostgresDSN)
+		if err != nil {
+			log.Fatalf("open database: %v", err)
+		}
+		logger.Info("database connected", "dsn", "***")
+
+		// init Redis with connection verification
+		redisClient, err := storage.NewRedisWithPing(cfg.RedisAddr, cfg.RedisPassword)
+		if err != nil {
+			log.Fatalf("connect redis: %v", err)
+		}
+		logger.Info("redis connected", "addr", cfg.RedisAddr)
 
 		runner := migrate.NewRunner(db.DB, cfg.MigrationsDir)
 		if _, err := runner.ApplyPending(context.Background(), false); err != nil {
@@ -58,6 +69,7 @@ func main() {
 		addr = ":8080"
 	}
 
+	logger.Info("starting server", "addr", addr)
 	if err := r.Run(addr); err != nil {
 		log.Fatalf("server error: %v", err)
 	}

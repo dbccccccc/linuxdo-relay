@@ -2,7 +2,6 @@ package server
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"linuxdo-relay/internal/logger"
 	"linuxdo-relay/internal/models"
 )
 
@@ -61,7 +61,7 @@ func CreditMiddleware(app *AppContext) gin.HandlerFunc {
 
 		cost, err := determineCreditCost(app, model)
 		if err != nil {
-			fmt.Println("credit: failed to determine cost:", err)
+			logger.Error("credit: failed to determine cost", "error", err, "model", model)
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "credit_cost_lookup_failed"})
 			return
 		}
@@ -80,7 +80,7 @@ func CreditMiddleware(app *AppContext) gin.HandlerFunc {
 				})
 				return
 			}
-			fmt.Println("credit: reserve failed:", err)
+			logger.Error("credit: reserve failed", "error", err, "userID", userID, "model", model, "cost", cost)
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "credit_reserve_failed"})
 			return
 		}
@@ -152,7 +152,7 @@ func selectCreditCost(model string, rules []models.ModelCreditRule, defaultCost 
 
 func reserveCreditsForRequest(app *AppContext, userID uint, model string, cost int, requestID string) (uint, error) {
 	if app == nil || app.DB == nil {
-		return 0, fmt.Errorf("app context missing")
+		return 0, errors.New("app context missing")
 	}
 	if cost <= 0 {
 		return 0, nil
@@ -195,7 +195,7 @@ func commitReservedCredits(app *AppContext, txnID uint) {
 			"status":     creditStatusCommitted,
 			"updated_at": time.Now(),
 		}).Error; err != nil {
-		fmt.Println("credit: commit failed:", err)
+		logger.Error("credit: commit failed", "error", err, "txnID", txnID)
 	}
 }
 
@@ -231,6 +231,6 @@ func refundReservedCredits(app *AppContext, txnID uint, userID uint, cost int) {
 		return tx.Create(&refundTxn).Error
 	})
 	if err != nil {
-		fmt.Println("credit: refund failed:", err)
+		logger.Error("credit: refund failed", "error", err, "txnID", txnID, "userID", userID, "cost", cost)
 	}
 }
