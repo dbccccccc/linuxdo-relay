@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, Tabs, Table, Typography } from '@douyinfe/semi-ui';
+import { Card, Tabs, Table, Toast, Typography } from '@douyinfe/semi-ui';
 import axios from 'axios';
 import { useAuth } from '../auth/AuthContext.jsx';
 
@@ -40,6 +40,7 @@ export function AdminLogsPage() {
       setApiTotal(res.data?.total || 0);
     } catch (err) {
       console.error('fetch api logs failed', err);
+      Toast.error('获取 API 日志失败');
     } finally {
       setApiLoading(false);
     }
@@ -57,6 +58,7 @@ export function AdminLogsPage() {
       setLoginTotal(res.data?.total || 0);
     } catch (err) {
       console.error('fetch login logs failed', err);
+      Toast.error('获取登录日志失败');
     } finally {
       setLoginLoading(false);
     }
@@ -74,6 +76,7 @@ export function AdminLogsPage() {
       setCreditTotal(res.data?.total || 0);
     } catch (err) {
       console.error('fetch credit transactions failed', err);
+      Toast.error('获取积分流水失败');
     } finally {
       setCreditLoading(false);
     }

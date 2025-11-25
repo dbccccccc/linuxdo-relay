@@ -101,6 +101,12 @@ export function AdminCheckInConfigsPage() {
           rowKey='id'
           loading={loading}
           dataSource={list}
+          pagination={{
+            pageSize: 10,
+            showTotal: true,
+            showSizeChanger: true,
+            pageSizeOpts: [10, 20, 50],
+          }}
           columns={[
             { title: 'ID', dataIndex: 'id', width: 80 },
             { title: '用户等级', dataIndex: 'level', width: 100 },

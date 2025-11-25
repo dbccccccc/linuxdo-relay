@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Card, Descriptions, Divider, Input, Typography, Table, Tabs, Space, Tag } from '@douyinfe/semi-ui';
+import { Button, Card, Descriptions, Divider, Input, Typography, Table, Tabs, Space, Tag, Toast } from '@douyinfe/semi-ui';
 import axios from 'axios';
 import { useAuth } from '../auth/AuthContext.jsx';
 
@@ -36,6 +36,10 @@ export function MePage() {
         { headers: authHeaders },
       );
       setApiKey(res.data.api_key || '');
+      Toast.success('API Key 已重新生成');
+    } catch (err) {
+      console.error('regenerate api key failed', err);
+      Toast.error('生成 API Key 失败');
     } finally {
       setLoading(false);
     }
@@ -49,6 +53,7 @@ export function MePage() {
       setQuotaUsage(res.data?.items || []);
     } catch (err) {
       console.error('fetch quota usage failed', err);
+      Toast.error('获取配额使用情况失败');
     } finally {
       setQuotaLoading(false);
     }
@@ -65,6 +70,7 @@ export function MePage() {
       setApiLogs(res.data?.items || []);
     } catch (err) {
       console.error('fetch api logs failed', err);
+      Toast.error('获取 API 日志失败');
     } finally {
       setApiLogsLoading(false);
     }
@@ -81,6 +87,7 @@ export function MePage() {
       setOperationLogs(res.data?.items || []);
     } catch (err) {
       console.error('fetch operation logs failed', err);
+      Toast.error('获取操作日志失败');
     } finally {
       setOperationLoading(false);
     }
@@ -97,6 +104,7 @@ export function MePage() {
       setCreditTxns(res.data?.items || []);
     } catch (err) {
       console.error('fetch credit transactions failed', err);
+      Toast.error('获取积分流水失败');
     } finally {
       setCreditLoading(false);
     }
@@ -110,6 +118,7 @@ export function MePage() {
       setCheckInStatus(res.data);
     } catch (err) {
       console.error('fetch check-in status failed', err);
+      Toast.error('获取签到状态失败');
     } finally {
       setCheckInLoading(false);
     }
@@ -129,13 +138,16 @@ export function MePage() {
         recent_logs: res.data.recent_logs,
         config: res.data.config || prev?.config || null,
       }));
+      Toast.success(`签到成功！获得 ${res.data.reward} 积分`);
       await reloadUser();
       await fetchCreditTransactions();
     } catch (err) {
       if (err?.response?.data?.error === 'already_checked_in') {
         setCheckInStatus((prev) => prev ? { ...prev, checked_in_today: true } : prev);
+        Toast.warning('今日已签到');
       } else {
         console.error('check-in failed', err);
+        Toast.error('签到失败');
       }
     } finally {
       setCheckInActionLoading(false);
@@ -150,6 +162,7 @@ export function MePage() {
       await fetchCreditTransactions();
     } catch (err) {
       console.error('refresh profile failed', err);
+      Toast.error('刷新失败');
     } finally {
       setProfileLoading(false);
     }

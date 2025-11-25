@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, Typography, Row, Col, Button } from '@douyinfe/semi-ui';
+import { Card, Typography, Row, Col, Button, Toast } from '@douyinfe/semi-ui';
 import axios from 'axios';
 import { useAuth } from '../auth/AuthContext.jsx';
 
@@ -37,6 +37,7 @@ export function AdminStatsPage() {
       setData(res.data || null);
     } catch (err) {
       console.error('fetch stats failed', err);
+      Toast.error('获取统计数据失败');
     } finally {
       setLoading(false);
     }
