@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
 
 	"github.com/gin-gonic/gin"
@@ -9,32 +11,47 @@ import (
 	"linuxdo-relay/internal/config"
 	"linuxdo-relay/internal/server"
 	"linuxdo-relay/internal/storage"
+	"linuxdo-relay/internal/storage/migrate"
 )
 
 func main() {
 	cfg, err := config.Load()
+	setupMode := false
 	if err != nil {
-		log.Fatalf("load config: %v", err)
+		if errors.Is(err, config.ErrSetupRequired) {
+			setupMode = true
+		} else {
+			log.Fatalf("load config: %v", err)
+		}
 	}
 
 	r := gin.Default()
 
-	// init DB & Redis
-	db := storage.NewDB(cfg.PostgresDSN)
-	redisClient := storage.NewRedis(cfg.RedisAddr, cfg.RedisPassword)
+	if setupMode {
+		server.RegisterSetupWizardRoutes(r, cfg)
+	} else {
+		// init DB & Redis
+		db := storage.NewDB(cfg.PostgresDSN)
+		redisClient := storage.NewRedis(cfg.RedisAddr, cfg.RedisPassword)
 
-	// init OAuth config
-	oauthCfg := auth.NewLinuxDoOAuthConfig(cfg)
+		runner := migrate.NewRunner(db.DB, cfg.MigrationsDir)
+		if _, err := runner.ApplyPending(context.Background(), false); err != nil {
+			log.Fatalf("apply migrations: %v", err)
+		}
 
-	app := &server.AppContext{
-		Config:    cfg,
-		DB:        db,
-		Redis:     redisClient,
-		OAuth:     oauthCfg,
-		JWTSecret: cfg.JWTSecret,
+		// init OAuth config
+		oauthCfg := auth.NewLinuxDoOAuthConfig(cfg)
+
+		app := &server.AppContext{
+			Config:    cfg,
+			DB:        db,
+			Redis:     redisClient,
+			OAuth:     oauthCfg,
+			JWTSecret: cfg.JWTSecret,
+		}
+
+		server.SetupRoutes(r, app)
 	}
-
-	server.SetupRoutes(r, app)
 
 	addr := cfg.HTTPListen
 	if addr == "" {

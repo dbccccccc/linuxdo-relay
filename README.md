@@ -84,26 +84,19 @@ wget https://github.com/dbccccccc/linuxdo-relay/releases/latest/download/docker-
 
 3. **启动服务**
 ```bash
-docker-compose up -d
+docker-compose up -d --build
 ```
 
-4. **初始化数据库**
-```bash
-# 进入 postgres 容器执行迁移
-docker-compose exec postgres psql -U relay -d linuxdo_relay
+4. **通过 Setup 向导初始化**
 
-# 在 psql 中执行迁移脚本
-\i /docker-entrypoint-initdb.d/001_init.sql
-\i /docker-entrypoint-initdb.d/002_logs.sql
-\i /docker-entrypoint-initdb.d/003_credits.sql
-\i /docker-entrypoint-initdb.d/004_check_in.sql
-\q
-```
+首次启动会进入“设置模式”，步骤如下：
 
-或者直接在宿主机执行：
-```bash
-cat migrations/*.sql | docker-compose exec -T postgres psql -U relay -d linuxdo_relay
-```
+- 浏览器打开 `http://localhost:8080/setup`
+- 填入数据库 DSN：`postgres://linuxdo_relay:linuxdo_relay@postgres:5432/linuxdo_relay?sslmode=disable`
+- 如需自定义 Redis，可一并在页面填写（默认 `redis:6379`）
+- 点击“保存并运行迁移”，等待状态变为 `ready`
+
+向导会把配置写入宿主机的 `runtimeconfig/config.json`（Compose 已挂载该目录），后续重启不会再要求手动迁移。
 
 5. **访问服务**
 - 后端 API：http://localhost:8080

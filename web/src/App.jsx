@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layout, Nav, Button, Typography } from '@douyinfe/semi-ui';
+import { Layout, Nav, Button, Typography, Spin } from '@douyinfe/semi-ui';
 import { Routes, Route, Link } from 'react-router-dom';
 import { useAuth } from './modules/auth/AuthContext.jsx';
 import { LoginPage } from './modules/auth/LoginPage.jsx';
@@ -10,12 +10,27 @@ import { AdminQuotaRulesPage } from './modules/admin/AdminQuotaRulesPage.jsx';
 import { AdminCreditRulesPage } from './modules/admin/AdminCreditRulesPage.jsx';
 import { AdminLogsPage } from './modules/admin/AdminLogsPage.jsx';
 import { AdminStatsPage } from './modules/admin/AdminStatsPage.jsx';
+import { useSetupStatus } from './modules/setup/useSetupStatus.js';
+import { SetupPage } from './modules/setup/SetupPage.jsx';
 
 const { Header, Content, Footer } = Layout;
 const { Title, Text } = Typography;
 
 export default function App() {
   const { user, isAdmin, logout } = useAuth();
+  const { status: setupStatus, loading: setupLoading, refresh: refreshSetup } = useSetupStatus();
+
+  if (setupLoading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Spin tip='正在检测服务器状态...' size='large' />
+      </div>
+    );
+  }
+
+  if (setupStatus?.mode && setupStatus.mode !== 'ready') {
+    return <SetupPage status={setupStatus} refresh={refreshSetup} />;
+  }
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
