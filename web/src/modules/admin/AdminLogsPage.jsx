@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, Tabs, Table, Typography } from '@douyinfe/semi-ui';
 import axios from 'axios';
 import { useAuth } from '../auth/AuthContext.jsx';
@@ -23,9 +23,10 @@ export function AdminLogsPage() {
   const [creditPage, setCreditPage] = useState(1);
   const [creditLoading, setCreditLoading] = useState(false);
 
-  const headers = token
-    ? { Authorization: `Bearer ${token}` }
-    : undefined;
+  const headers = useMemo(
+    () => (token ? { Authorization: `Bearer ${token}` } : undefined),
+    [token],
+  );
 
   const fetchApiLogs = useCallback(async () => {
     if (!token || !isAdmin) return;

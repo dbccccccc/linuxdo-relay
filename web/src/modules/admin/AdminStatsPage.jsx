@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, Typography, Row, Col, Button } from '@douyinfe/semi-ui';
 import axios from 'axios';
 import { useAuth } from '../auth/AuthContext.jsx';
@@ -24,9 +24,10 @@ export function AdminStatsPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const headers = token
-    ? { Authorization: `Bearer ${token}` }
-    : undefined;
+  const headers = useMemo(
+    () => (token ? { Authorization: `Bearer ${token}` } : undefined),
+    [token],
+  );
 
   const fetchStats = useCallback(async () => {
     if (!token || !isAdmin) return;

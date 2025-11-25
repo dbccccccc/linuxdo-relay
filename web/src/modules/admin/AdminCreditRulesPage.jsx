@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Card, Form, Modal, Space, Table, Typography } from '@douyinfe/semi-ui';
 import axios from 'axios';
 import { useAuth } from '../auth/AuthContext.jsx';
@@ -12,7 +12,10 @@ export function AdminCreditRulesPage() {
   const [visible, setVisible] = useState(false);
   const [editing, setEditing] = useState(null);
 
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  const headers = useMemo(
+    () => (token ? { Authorization: `Bearer ${token}` } : undefined),
+    [token],
+  );
 
   const fetchList = useCallback(async () => {
     if (!token || !isAdmin) return;
