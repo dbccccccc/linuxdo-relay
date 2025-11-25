@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Layout, Nav, Button, Avatar, Dropdown, Typography, Tabs, Divider } from '@douyinfe/semi-ui';
+import { Layout, Nav, Button, Avatar, Dropdown, Typography, Select } from '@douyinfe/semi-ui';
 import {
   IconHome,
   IconUser,
@@ -9,7 +9,10 @@ import {
   IconKey,
   IconCreditCard,
   IconServer,
-  IconExit
+  IconExit,
+  IconChevronDown,
+  IconDoubleChevronLeft,
+  IconDoubleChevronRight
 } from '@douyinfe/semi-icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../modules/auth/AuthContext.jsx';
@@ -27,11 +30,11 @@ export default function MainLayout({ children }) {
   const sections = useMemo(() => (
     isAdmin
       ? [
-          { key: 'user', label: '普通用户' },
-          { key: 'admin', label: '管理员配置' },
+          { value: 'user', label: '控制台' },
+          { value: 'admin', label: '管理员配置' },
         ]
       : [
-          { key: 'user', label: '普通用户' },
+          { value: 'user', label: '控制台' },
         ]
   ), [isAdmin]);
 
@@ -62,9 +65,9 @@ export default function MainLayout({ children }) {
     return 'home';
   };
 
-  const handleSectionChange = (key) => {
-    if (key === sectionFromPath) return;
-    const fallbackRoute = key === 'admin' ? '/admin/stats' : '/me';
+  const handleSectionChange = (value) => {
+    if (value === sectionFromPath) return;
+    const fallbackRoute = value === 'admin' ? '/admin/stats' : '/me';
     navigate(fallbackRoute);
   };
 
@@ -82,39 +85,90 @@ export default function MainLayout({ children }) {
     ))
   );
 
+  const sectionMenus = useMemo(() => {
+    const menus = [];
+    
+    // User section as a submenu
+    menus.push({
+      itemKey: 'user-section',
+      text: '控制台',
+      icon: <IconHome />,
+      items: navItemsBySection.user,
+    });
+
+    // Admin section as a submenu (only for admins)
+    if (isAdmin) {
+      menus.push({
+        itemKey: 'admin-section',
+        text: '管理员配置',
+        icon: <IconSetting />,
+        items: navItemsBySection.admin,
+      });
+    }
+
+    return menus;
+  }, [isAdmin]);
+
+  const renderSectionMenus = (menus) => (
+    menus.map(section => (
+      <Nav.Sub
+        itemKey={section.itemKey}
+        text={section.text}
+        icon={section.icon}
+        key={section.itemKey}
+      >
+        {section.items.map(item => (
+          <Nav.Item
+            itemKey={item.itemKey}
+            text={item.text}
+            icon={item.icon}
+            key={item.itemKey}
+            onClick={() => navigate(item.path)}
+          />
+        ))}
+      </Nav.Sub>
+    ))
+  );
+
   return (
     <Layout style={{ height: '100vh', display: 'flex', flexDirection: 'row' }}>
       <Sider style={{ backgroundColor: 'var(--semi-color-bg-1)', display: 'flex', flexDirection: 'column' }}>
-        {sections.length > 1 && (
-          <div style={{ padding: '12px 16px 0' }}>
-            <Tabs
-              type='button'
-              size='small'
-              activeKey={sectionFromPath}
-              onChange={handleSectionChange}
-            >
-              {sections.map((section) => (
-                <Tabs.TabPane tab={section.label} itemKey={section.key} key={section.key} />
-              ))}
-            </Tabs>
-            <Divider style={{ margin: '12px 0' }} />
-          </div>
-        )}
+        <div style={{ 
+          padding: '16px', 
+          borderBottom: '1px solid var(--semi-color-border)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <IconServer style={{ fontSize: 32, color: 'var(--semi-color-primary)' }} />
+          {!isCollapsed && (
+            <Text strong style={{ fontSize: 16 }}>LinuxDo Relay</Text>
+          )}
+        </div>
+        
         <Nav
           selectedKeys={[getSelectedKey()]}
-          style={{ maxWidth: 220, flex: 1 }}
+          defaultOpenKeys={['user-section', 'admin-section']}
+          style={{ flex: 1, maxWidth: 220 }}
           isCollapsed={isCollapsed}
-          header={{
-            logo: <IconServer style={{ fontSize: 36, color: 'var(--semi-color-primary)' }} />,
-            text: 'LinuxDo Relay'
-          }}
-          footer={{
-            collapseButton: true,
-          }}
-          onCollapseChange={setIsCollapsed}
         >
-          {renderNavItems(currentNavItems)}
+          {renderSectionMenus(sectionMenus)}
         </Nav>
+
+        <div style={{ 
+          padding: '12px 16px', 
+          borderTop: '1px solid var(--semi-color-border)',
+          display: 'flex',
+          justifyContent: isCollapsed ? 'center' : 'flex-end'
+        }}>
+          <Button
+            icon={isCollapsed ? <IconDoubleChevronRight /> : <IconDoubleChevronLeft />}
+            theme='borderless'
+            size='small'
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            style={{ color: 'var(--semi-color-text-2)' }}
+          />
+        </div>
       </Sider>
       <Layout style={{ flex: 1, overflow: 'hidden' }}>
         <Header style={{ backgroundColor: 'var(--semi-color-bg-1)', height: 60, padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--semi-color-border)' }}>
