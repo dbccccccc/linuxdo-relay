@@ -80,9 +80,13 @@ func Load() (*Config, error) {
 		cfg.DefaultModelCreditCost = 0
 	}
 
+	// If database is not configured, enter setup mode
+	// JWTSecret check is skipped in setup mode
 	if cfg.PostgresDSN == "" {
 		return cfg, ErrSetupRequired
 	}
+
+	// Only require JWTSecret when database is configured (normal mode)
 	if cfg.JWTSecret == "" {
 		return cfg, fmt.Errorf("APP_JWT_SECRET is required")
 	}

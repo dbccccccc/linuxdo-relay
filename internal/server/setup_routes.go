@@ -21,7 +21,9 @@ func RegisterSetupWizardRoutes(r *gin.Engine, cfg *config.Config) {
 
 	r.GET("/setup/status", handler.handleStatus)
 	r.POST("/setup/database", handler.handleSaveDatabase)
+	r.POST("/setup/database/test", handler.handleTestConnection)
 	r.POST("/setup/migrate", handler.handleRunMigrations)
+	r.POST("/setup/complete", handler.handleComplete)
 
 	r.Static("/assets", "./web/dist/assets")
 	r.StaticFile("/favicon.ico", "./web/dist/favicon.ico")
@@ -153,6 +155,54 @@ func (h *setupHandler) handleSaveDatabase(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"mode": string(res.Status), "result": res})
 }
 
+func (h *setupHandler) handleTestConnection(c *gin.Context) {
+	var body struct {
+		DSN string `json:"dsn"`
+	}
+	if err := c.BindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload"})
+		return
+	}
+	if body.DSN == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "dsn is required"})
+		return
+	}
+
+	db, err := storage.OpenDB(body.DSN)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("setup test: close db: %v", err)
+		}
+	}()
+
+	// Test actual connection
+	sqlDB, err := db.DB.DB()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+	if err := sqlDB.Ping(); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	// Get database version info
+	var version string
+	if err := db.Raw("SELECT version()").Scan(&version).Error; err != nil {
+		version = "unknown"
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "数据库连接成功",
+		"version": version,
+	})
+}
+
 func (h *setupHandler) handleRunMigrations(c *gin.Context) {
 	store := runtimeconfig.NewStore(h.config.RuntimeConfigPath)
 	data, err := store.Load()
@@ -194,4 +244,49 @@ func (h *setupHandler) handleRunMigrations(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"mode": string(res.Status), "result": res})
+}
+
+func (h *setupHandler) handleComplete(c *gin.Context) {
+	store := runtimeconfig.NewStore(h.config.RuntimeConfigPath)
+	data, err := store.Load()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "runtime config missing"})
+		return
+	}
+	if data.Database.DSN == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "database dsn not configured"})
+		return
+	}
+
+	// Verify database connection and migration status
+	db, err := storage.OpenDB(data.Database.DSN)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "database connection failed: " + err.Error()})
+		return
+	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("setup complete: close db: %v", err)
+		}
+	}()
+
+	runner := migrate.NewRunner(db.DB, h.config.MigrationsDir)
+	res, err := runner.Check(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if res.Status != migrate.StatusReady {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":  "database is not ready, please run migrations first",
+			"status": string(res.Status),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "配置完成，请重启服务器以应用更改",
+	})
 }
