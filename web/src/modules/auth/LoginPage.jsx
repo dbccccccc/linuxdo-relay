@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect } from 'react';
 import { Button, Card, Typography } from '@douyinfe/semi-ui';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext.jsx';
 
 const { Title, Text } = Typography;
 
 export function LoginPage() {
   const { saveAuth } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     function handleMessage(event) {
@@ -14,8 +16,8 @@ export function LoginPage() {
           typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         if (data?.type !== 'linuxdo-login-success') return;
         saveAuth(data.token, data.user);
-        // 登录成功后跳转到个人中心，由弹窗自身负责关闭
-        window.location.href = '/me';
+        // 通过客户端路由跳转，避免重新请求后端 /me API 路径
+        navigate('/me', { replace: true });
       } catch {
         // ignore
       }
@@ -23,7 +25,7 @@ export function LoginPage() {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [saveAuth]);
+  }, [saveAuth, navigate]);
 
   const handleLogin = useCallback(() => {
     const w = 600;

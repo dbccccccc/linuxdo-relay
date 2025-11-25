@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"linuxdo-relay/internal/runtimeconfig"
 )
@@ -96,7 +97,10 @@ func Load() (*Config, error) {
 
 func getEnv(key, def string) string {
 	if v, ok := os.LookupEnv(key); ok {
-		return v
+		v = strings.TrimSpace(v)
+		if v != "" {
+			return v
+		}
 	}
 	return def
 }
