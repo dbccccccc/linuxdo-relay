@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Banner, Button, Card, Form, Typography, Space, Tag, Steps, Divider } from '@douyinfe/semi-ui';
+import { Banner, Button, Card, Form, Typography, Space, Tag, Steps, Divider, Layout } from '@douyinfe/semi-ui';
 import { IconCheckCircleStroked, IconLink, IconServer, IconTick } from '@douyinfe/semi-icons';
 import axios from 'axios';
 
 const { Title, Text, Paragraph } = Typography;
+const { Content, Footer } = Layout;
 
 export function SetupPage({ status, refresh }) {
   const [currentStep, setCurrentStep] = useState(0);
@@ -278,43 +279,56 @@ APP_LINUXDO_REDIRECT_URL=https://your-domain/auth/callback`}
   );
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <Card style={{ width: 600, maxWidth: '100%' }}>
-        <Title heading={3} style={{ marginBottom: 8 }}>服务器初始化向导</Title>
-        <Text type='tertiary' style={{ display: 'block', marginBottom: 24 }}>
-          当前状态：<Tag color={status?.mode === 'ready' ? 'green' : 'orange'}>{status?.mode || 'unknown'}</Tag>
-        </Text>
+    <Layout style={{ height: '100vh', backgroundColor: 'var(--semi-color-bg-0)' }}>
+      <Content
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          flexDirection: 'column',
+          background: 'linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%)'
+        }}
+      >
+        <Card style={{ width: 600, maxWidth: '100%', borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+          <Title heading={3} style={{ marginBottom: 8 }}>服务器初始化向导</Title>
+          <Text type='tertiary' style={{ display: 'block', marginBottom: 24 }}>
+            当前状态：<Tag color={status?.mode === 'ready' ? 'green' : 'orange'}>{status?.mode || 'unknown'}</Tag>
+          </Text>
 
-        <Steps current={currentStep} style={{ marginBottom: 24 }}>
-          <Steps.Step title="数据库配置" description="配置 PostgreSQL 连接" />
-          <Steps.Step title="数据库初始化" description="运行数据库迁移" />
-          <Steps.Step title="完成" description="启动服务" />
-        </Steps>
+          <Steps current={currentStep} style={{ marginBottom: 24 }}>
+            <Steps.Step title="数据库配置" description="配置 PostgreSQL 连接" />
+            <Steps.Step title="数据库初始化" description="运行数据库迁移" />
+            <Steps.Step title="完成" description="启动服务" />
+          </Steps>
 
-        {message && (
-          <Banner
-            type={message.type}
-            closeIcon={null}
-            style={{ marginBottom: 16 }}
-          >
-            {message.text}
-          </Banner>
-        )}
+          {message && (
+            <Banner
+              type={message.type}
+              closeIcon={null}
+              style={{ marginBottom: 16 }}
+            >
+              {message.text}
+            </Banner>
+          )}
 
-        {currentStep === 0 && renderStep0()}
-        {currentStep === 1 && renderStep1()}
-        {currentStep === 2 && renderStep2()}
+          {currentStep === 0 && renderStep0()}
+          {currentStep === 1 && renderStep1()}
+          {currentStep === 2 && renderStep2()}
 
-        {currentStep > 0 && currentStep < 2 && (
-          <Button 
-            style={{ marginTop: 16 }} 
-            type='tertiary'
-            onClick={() => setCurrentStep(currentStep - 1)}
-          >
-            上一步
-          </Button>
-        )}
-      </Card>
-    </div>
+          {currentStep > 0 && currentStep < 2 && (
+            <Button 
+              style={{ marginTop: 16 }} 
+              type='tertiary'
+              onClick={() => setCurrentStep(currentStep - 1)}
+            >
+              上一步
+            </Button>
+          )}
+        </Card>
+        <Footer style={{ marginTop: 24 }}>
+          <Text type="tertiary">© 2025 LinuxDo Relay. All rights reserved.</Text>
+        </Footer>
+      </Content>
+    </Layout>
   );
 }
