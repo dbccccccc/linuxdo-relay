@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Card, Descriptions, Divider, Input, Typography, Table, Tabs, Space, Tag } from '@douyinfe/semi-ui';
 import axios from 'axios';
 import { useAuth } from '../auth/AuthContext.jsx';
@@ -22,9 +22,10 @@ export function MePage() {
   const [checkInLoading, setCheckInLoading] = useState(false);
   const [checkInActionLoading, setCheckInActionLoading] = useState(false);
 
-  const headers = token
-    ? { Authorization: `Bearer ${token}` }
-    : undefined;
+  const authHeaders = useMemo(
+    () => (token ? { Authorization: `Bearer ${token}` } : undefined),
+    [token],
+  );
 
   const handleRegenerate = useCallback(async () => {
     setLoading(true);
@@ -32,33 +33,33 @@ export function MePage() {
       const res = await axios.post(
         '/me/api_key/regenerate',
         {},
-        { headers },
+        { headers: authHeaders },
       );
       setApiKey(res.data.api_key || '');
     } finally {
       setLoading(false);
     }
-  }, [headers]);
+  }, [authHeaders]);
 
   const fetchQuotaUsage = useCallback(async () => {
     if (!token) return;
     setQuotaLoading(true);
     try {
-      const res = await axios.get('/me/quota_usage', { headers });
+      const res = await axios.get('/me/quota_usage', { headers: authHeaders });
       setQuotaUsage(res.data?.items || []);
     } catch (err) {
       console.error('fetch quota usage failed', err);
     } finally {
       setQuotaLoading(false);
     }
-  }, [headers, token]);
+  }, [authHeaders, token]);
 
   const fetchApiLogs = useCallback(async () => {
     if (!token) return;
     setApiLogsLoading(true);
     try {
       const res = await axios.get('/me/api_logs', {
-        headers,
+        headers: authHeaders,
         params: { page: 1, page_size: 20 },
       });
       setApiLogs(res.data?.items || []);
@@ -67,14 +68,14 @@ export function MePage() {
     } finally {
       setApiLogsLoading(false);
     }
-  }, [headers, token]);
+  }, [authHeaders, token]);
 
   const fetchOperationLogs = useCallback(async () => {
     if (!token) return;
     setOperationLoading(true);
     try {
       const res = await axios.get('/me/operation_logs', {
-        headers,
+        headers: authHeaders,
         params: { page: 1, page_size: 20 },
       });
       setOperationLogs(res.data?.items || []);
@@ -83,14 +84,14 @@ export function MePage() {
     } finally {
       setOperationLoading(false);
     }
-  }, [headers, token]);
+  }, [authHeaders, token]);
 
   const fetchCreditTransactions = useCallback(async () => {
     if (!token) return;
     setCreditLoading(true);
     try {
       const res = await axios.get('/me/credit_transactions', {
-        headers,
+        headers: authHeaders,
         params: { page: 1, page_size: 20 },
       });
       setCreditTxns(res.data?.items || []);
@@ -99,26 +100,26 @@ export function MePage() {
     } finally {
       setCreditLoading(false);
     }
-  }, [headers, token]);
+  }, [authHeaders, token]);
 
   const fetchCheckInStatus = useCallback(async () => {
     if (!token) return;
     setCheckInLoading(true);
     try {
-      const res = await axios.get('/me/check_in/status', { headers });
+      const res = await axios.get('/me/check_in/status', { headers: authHeaders });
       setCheckInStatus(res.data);
     } catch (err) {
       console.error('fetch check-in status failed', err);
     } finally {
       setCheckInLoading(false);
     }
-  }, [headers, token]);
+  }, [authHeaders, token]);
 
   const handleCheckIn = useCallback(async () => {
     if (!token) return;
     setCheckInActionLoading(true);
     try {
-      const res = await axios.post('/me/check_in', {}, { headers });
+      const res = await axios.post('/me/check_in', {}, { headers: authHeaders });
       setCheckInStatus((prev) => ({
         ...prev,
         checked_in_today: true,
@@ -139,7 +140,7 @@ export function MePage() {
     } finally {
       setCheckInActionLoading(false);
     }
-  }, [fetchCreditTransactions, headers, reloadUser, token]);
+  }, [authHeaders, fetchCreditTransactions, reloadUser, token]);
 
   const refreshProfile = useCallback(async () => {
     if (!token) return;
