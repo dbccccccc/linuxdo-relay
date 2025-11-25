@@ -38,12 +38,16 @@ func main() {
 		}
 		logger.Info("database connected", "dsn", "***")
 
-		// init Redis with connection verification
-		redisClient, err := storage.NewRedisWithPing(cfg.RedisAddr, cfg.RedisPassword)
+		// init Redis with connection verification (optional, graceful degradation)
+		var redisClient *storage.Redis
+		redisClient, err = storage.NewRedisWithPing(cfg.RedisAddr, cfg.RedisPassword)
 		if err != nil {
-			log.Fatalf("connect redis: %v", err)
+			logger.Warn("redis connection failed, quota limiting will be disabled", "addr", cfg.RedisAddr, "error", err.Error())
+			// Create a nil-safe Redis client for graceful degradation
+			redisClient = nil
+		} else {
+			logger.Info("redis connected", "addr", cfg.RedisAddr)
 		}
-		logger.Info("redis connected", "addr", cfg.RedisAddr)
 
 		runner := migrate.NewRunner(db.DB, cfg.MigrationsDir)
 		if _, err := runner.ApplyPending(context.Background(), false); err != nil {
