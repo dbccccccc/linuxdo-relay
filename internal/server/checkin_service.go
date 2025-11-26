@@ -1,8 +1,9 @@
 package server
 
 import (
+	crand "crypto/rand"
 	"errors"
-	"math"
+	"math/big"
 	"time"
 
 	"gorm.io/gorm"
@@ -16,69 +17,27 @@ var (
 	cstLocation         = time.FixedZone("UTC+8", 8*3600)
 )
 
-type checkInResult struct {
+type checkInStatus struct {
+	CheckedToday bool
 	Reward       int
 	Streak       int
 	Credits      int
-	CheckInDate  time.Time
-	CheckedToday bool
-	Config       *models.CheckInConfig
+}
+
+type checkInSpinResult struct {
+	RewardOption      models.CheckInRewardOption
+	MultiplierPercent int
+	FinalReward       int
+	Streak            int
+	Credits           int
+	CheckInDate       time.Time
+	CheckedToday      bool
+	WheelIndex        int
 }
 
 func determineCheckInDate(now time.Time) time.Time {
 	local := now.In(cstLocation)
 	return time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC)
-}
-
-func loadCheckInConfig(tx *gorm.DB, level int) (*models.CheckInConfig, error) {
-	var cfg models.CheckInConfig
-	if err := tx.Where("level <= ?", level).Order("level DESC").First(&cfg).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			if err2 := tx.Order("level ASC").First(&cfg).Error; err2 != nil {
-				return nil, err2
-			}
-			return &cfg, nil
-		}
-		return nil, err
-	}
-	return &cfg, nil
-}
-
-func calculateCheckInReward(cfg *models.CheckInConfig, currentCredits int) int {
-	if cfg == nil || cfg.BaseReward <= 0 {
-		return 0
-	}
-
-	// 如果余额低于阈值，给予全额奖励
-	if currentCredits < cfg.DecayThreshold {
-		return cfg.BaseReward
-	}
-
-	// 计算超出阈值的部分
-	excess := currentCredits - cfg.DecayThreshold
-
-	// 每超出 100 积分，衰减 5%（可调整此比例）
-	decayRate := 5.0 // 每 100 积分衰减 5%
-	decayPercent := (float64(excess) / 100.0) * decayRate
-
-	// 计算当前倍数：100% - 衰减百分比
-	multiplierPercent := 100.0 - decayPercent
-
-	// 限制在最低倍数和 100% 之间
-	minMultiplier := float64(cfg.MinMultiplierPercent)
-	if multiplierPercent < minMultiplier {
-		multiplierPercent = minMultiplier
-	}
-	if multiplierPercent > 100 {
-		multiplierPercent = 100
-	}
-
-	// 计算最终奖励
-	reward := int(math.Round(float64(cfg.BaseReward) * multiplierPercent / 100.0))
-	if reward < 1 {
-		reward = 1
-	}
-	return reward
 }
 
 func fetchCheckInLog(tx *gorm.DB, userID uint, date time.Time) (*models.CheckInLog, error) {
@@ -103,11 +62,85 @@ func fetchRecentCheckInLogs(app *AppContext, userID uint, limit int) ([]models.C
 	return logs, nil
 }
 
-func performDailyCheckIn(app *AppContext, userID uint) (*checkInResult, error) {
+func loadRewardOptions(tx *gorm.DB) ([]models.CheckInRewardOption, error) {
+	var options []models.CheckInRewardOption
+	if err := tx.Order("sort_order ASC, id ASC").Find(&options).Error; err != nil {
+		return nil, err
+	}
+	if len(options) == 0 {
+		return nil, errors.New("no check-in reward options configured")
+	}
+	return options, nil
+}
+
+func loadDecayRules(tx *gorm.DB) ([]models.CheckInDecayRule, error) {
+	var rules []models.CheckInDecayRule
+	if err := tx.Order("sort_order ASC, threshold ASC").Find(&rules).Error; err != nil {
+		return nil, err
+	}
+	return rules, nil
+}
+
+func randomInt(max int) int {
+	if max <= 0 {
+		return 0
+	}
+	n, err := crand.Int(crand.Reader, big.NewInt(int64(max)))
+	if err != nil {
+		return 0
+	}
+	return int(n.Int64())
+}
+
+func selectRewardOption(options []models.CheckInRewardOption) (models.CheckInRewardOption, int) {
+	total := 0
+	for _, opt := range options {
+		if opt.Probability > 0 {
+			total += opt.Probability
+		}
+	}
+	if total <= 0 {
+		total = len(options)
+	}
+	randVal := randomInt(total)
+	cumulative := 0
+	for idx, opt := range options {
+		weight := opt.Probability
+		if weight <= 0 {
+			weight = 1
+		}
+		cumulative += weight
+		if randVal < cumulative {
+			return opt, idx
+		}
+	}
+	return options[len(options)-1], len(options) - 1
+}
+
+func calculateMultiplier(rules []models.CheckInDecayRule, currentCredits int) int {
+	multiplier := 100
+	for _, rule := range rules {
+		if currentCredits > rule.Threshold {
+			multiplier = rule.MultiplierPercent
+		} else {
+			break
+		}
+	}
+	if multiplier <= 0 {
+		return 1
+	}
+	if multiplier > 100 {
+		return 100
+	}
+	return multiplier
+}
+
+func performDailyCheckIn(app *AppContext, userID uint) (*checkInSpinResult, error) {
 	if app == nil || app.DB == nil {
 		return nil, errors.New("app context missing")
 	}
-	var result checkInResult
+
+	var result checkInSpinResult
 	err := app.DB.Transaction(func(tx *gorm.DB) error {
 		today := determineCheckInDate(time.Now())
 
@@ -122,14 +155,20 @@ func performDailyCheckIn(app *AppContext, userID uint) (*checkInResult, error) {
 			return err
 		}
 
-		cfg, err := loadCheckInConfig(tx, user.Level)
+		rewardOptions, err := loadRewardOptions(tx)
+		if err != nil {
+			return err
+		}
+		decayRules, err := loadDecayRules(tx)
 		if err != nil {
 			return err
 		}
 
-		reward := calculateCheckInReward(cfg, user.Credits)
-		if reward <= 0 {
-			return errors.New("calculated reward is zero")
+		selected, idx := selectRewardOption(rewardOptions)
+		multiplier := calculateMultiplier(decayRules, user.Credits)
+		finalReward := selected.Credits * multiplier / 100
+		if finalReward < 1 {
+			finalReward = 1
 		}
 
 		yesterday := today.AddDate(0, 0, -1)
@@ -138,7 +177,7 @@ func performDailyCheckIn(app *AppContext, userID uint) (*checkInResult, error) {
 			streak = log.Streak + 1
 		}
 
-		credits, err := adjustUserCreditsTx(tx, userID, reward, creditReasonCheckIn, nil)
+		credits, err := adjustUserCreditsTx(tx, userID, finalReward, creditReasonCheckIn, nil)
 		if err != nil {
 			return err
 		}
@@ -146,20 +185,22 @@ func performDailyCheckIn(app *AppContext, userID uint) (*checkInResult, error) {
 		entry := models.CheckInLog{
 			UserID:        userID,
 			CheckInDate:   today,
-			EarnedCredits: reward,
+			EarnedCredits: finalReward,
 			Streak:        streak,
 		}
 		if err := tx.Create(&entry).Error; err != nil {
 			return err
 		}
 
-		result = checkInResult{
-			Reward:       reward,
-			Streak:       streak,
-			Credits:      credits,
-			CheckInDate:  today,
-			CheckedToday: true,
-			Config:       cfg,
+		result = checkInSpinResult{
+			RewardOption:      selected,
+			MultiplierPercent: multiplier,
+			FinalReward:       finalReward,
+			Streak:            streak,
+			Credits:           credits,
+			CheckInDate:       today,
+			CheckedToday:      true,
+			WheelIndex:        idx,
 		}
 		return nil
 	})
@@ -169,7 +210,7 @@ func performDailyCheckIn(app *AppContext, userID uint) (*checkInResult, error) {
 	return &result, nil
 }
 
-func loadTodayCheckInStatus(app *AppContext, userID uint, level int, credits int) (*checkInResult, error) {
+func loadTodayCheckInStatus(app *AppContext, userID uint, credits int) (*checkInStatus, error) {
 	if app == nil || app.DB == nil {
 		return nil, errors.New("app context missing")
 	}
@@ -178,41 +219,27 @@ func loadTodayCheckInStatus(app *AppContext, userID uint, level int, credits int
 	var log models.CheckInLog
 	err := app.DB.Where("user_id = ? AND check_in_date = ?", userID, today).First(&log).Error
 	if err == nil {
-		cfg, cfgErr := loadCheckInConfig(app.DB.DB, level)
-		if cfgErr != nil {
-			return nil, cfgErr
-		}
-		return &checkInResult{
+		return &checkInStatus{
+			CheckedToday: true,
 			Reward:       log.EarnedCredits,
 			Streak:       log.Streak,
 			Credits:      credits,
-			CheckInDate:  today,
-			CheckedToday: true,
-			Config:       cfg,
 		}, nil
 	}
 	if err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
 
-	cfg, err := loadCheckInConfig(app.DB.DB, level)
-	if err != nil {
-		return nil, err
-	}
-
-	reward := calculateCheckInReward(cfg, credits)
 	yesterday := today.AddDate(0, 0, -1)
 	streak := 0
 	if yLog, err := fetchCheckInLog(app.DB.DB, userID, yesterday); err == nil {
 		streak = yLog.Streak
 	}
 
-	return &checkInResult{
-		Reward:       reward,
+	return &checkInStatus{
+		CheckedToday: false,
+		Reward:       0,
 		Streak:       streak,
 		Credits:      credits,
-		CheckInDate:  today,
-		CheckedToday: false,
-		Config:       cfg,
 	}, nil
 }

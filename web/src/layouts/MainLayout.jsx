@@ -12,7 +12,8 @@ import {
   IconExit,
   IconChevronDown,
   IconDoubleChevronLeft,
-  IconDoubleChevronRight
+  IconDoubleChevronRight,
+  IconGift
 } from '@douyinfe/semi-icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../modules/auth/AuthContext.jsx';
@@ -41,6 +42,7 @@ export default function MainLayout({ children }) {
   const navItemsBySection = {
     user: [
       { itemKey: 'home', text: '我的账户', icon: <IconHome />, path: '/me' },
+      { itemKey: 'checkin', text: '每日签到', icon: <IconGift />, path: '/check-in' },
     ],
     admin: [
       { itemKey: 'stats', text: '数据统计', icon: <IconHistogram />, path: '/admin/stats' },
@@ -48,18 +50,17 @@ export default function MainLayout({ children }) {
       { itemKey: 'channels', text: '渠道管理', icon: <IconServer />, path: '/admin/channels' },
       { itemKey: 'quota', text: '配额规则', icon: <IconKey />, path: '/admin/quota_rules' },
       { itemKey: 'credit_rules', text: '积分规则', icon: <IconCreditCard />, path: '/admin/credit_rules' },
-      { itemKey: 'check_in_configs', text: '签到配置', icon: <IconSetting />, path: '/admin/check_in_configs' },
       { itemKey: 'logs', text: '系统日志', icon: <IconFile />, path: '/admin/logs' },
     ],
   };
 
   const getSelectedKey = () => {
     const path = location.pathname;
+    if (path.startsWith('/check-in')) return 'checkin';
     if (path.startsWith('/admin/users')) return 'users';
     if (path.startsWith('/admin/channels')) return 'channels';
     if (path.startsWith('/admin/quota_rules')) return 'quota';
     if (path.startsWith('/admin/credit_rules')) return 'credit_rules';
-    if (path.startsWith('/admin/check_in_configs')) return 'check_in_configs';
     if (path.startsWith('/admin/logs')) return 'logs';
     if (path.startsWith('/admin/stats')) return 'stats';
     return 'home';

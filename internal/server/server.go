@@ -141,6 +141,44 @@ func SetupRoutes(r *gin.Engine, app *AppContext) {
 		c.JSON(http.StatusOK, gin.H{"total": total, "items": txns})
 	})
 
+	authGroup.GET("/me/check_in/config", func(c *gin.Context) {
+		uidVal, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "no user in context"})
+			return
+		}
+		userID, ok := uidVal.(uint)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid user id type"})
+			return
+		}
+
+		var user models.User
+		if err := app.DB.First(&user, userID).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load user"})
+			return
+		}
+
+		rewardOptions, err := loadRewardOptions(app.DB.DB)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load wheel config"})
+			return
+		}
+		decayRules, err := loadDecayRules(app.DB.DB)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load decay rules"})
+			return
+		}
+
+		multiplier := calculateMultiplier(decayRules, user.Credits)
+		c.JSON(http.StatusOK, gin.H{
+			"reward_options":     rewardOptions,
+			"decay_rules":        decayRules,
+			"current_multiplier": multiplier,
+			"current_credits":    user.Credits,
+		})
+	})
+
 	authGroup.GET("/me/check_in/status", func(c *gin.Context) {
 		uidVal, exists := c.Get("user_id")
 		if !exists {
@@ -159,7 +197,7 @@ func SetupRoutes(r *gin.Engine, app *AppContext) {
 			return
 		}
 
-		status, err := loadTodayCheckInStatus(app, user.ID, user.Level, user.Credits)
+		status, err := loadTodayCheckInStatus(app, user.ID, user.Credits)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load check-in status"})
 			return
@@ -171,26 +209,16 @@ func SetupRoutes(r *gin.Engine, app *AppContext) {
 			return
 		}
 
-		resp := gin.H{
+		c.JSON(http.StatusOK, gin.H{
 			"checked_in_today": status.CheckedToday,
 			"today_reward":     status.Reward,
 			"streak":           status.Streak,
 			"credits":          status.Credits,
 			"recent_logs":      recent,
-		}
-		if status.Config != nil {
-			resp["config"] = gin.H{
-				"level":                  status.Config.Level,
-				"base_reward":            status.Config.BaseReward,
-				"decay_threshold":        status.Config.DecayThreshold,
-				"min_multiplier_percent": status.Config.MinMultiplierPercent,
-			}
-		}
-
-		c.JSON(http.StatusOK, resp)
+		})
 	})
 
-	authGroup.POST("/me/check_in", func(c *gin.Context) {
+	authGroup.POST("/me/check_in/spin", func(c *gin.Context) {
 		uidVal, exists := c.Get("user_id")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "no user in context"})
@@ -218,21 +246,20 @@ func SetupRoutes(r *gin.Engine, app *AppContext) {
 			return
 		}
 
-		resp := gin.H{
-			"reward":      res.Reward,
+		c.JSON(http.StatusOK, gin.H{
+			"reward": gin.H{
+				"id":                 res.RewardOption.ID,
+				"label":              res.RewardOption.Label,
+				"color":              res.RewardOption.Color,
+				"base_credits":       res.RewardOption.Credits,
+				"multiplier_percent": res.MultiplierPercent,
+				"final_credits":      res.FinalReward,
+				"wheel_index":        res.WheelIndex,
+			},
 			"streak":      res.Streak,
 			"credits":     res.Credits,
 			"recent_logs": recent,
-		}
-		if res.Config != nil {
-			resp["config"] = gin.H{
-				"level":                  res.Config.Level,
-				"base_reward":            res.Config.BaseReward,
-				"decay_threshold":        res.Config.DecayThreshold,
-				"min_multiplier_percent": res.Config.MinMultiplierPercent,
-			}
-		}
-		c.JSON(http.StatusOK, resp)
+		})
 	})
 
 	// regenerate per-user API key (JWT-only, for web UI).

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Card, Descriptions, Divider, Input, Typography, Table, Tabs, Space, Tag, Toast, Row, Col, Avatar } from '@douyinfe/semi-ui';
-import { IconUser, IconKey, IconCalendar, IconCreditCard, IconActivity, IconHistory, IconRefresh, IconCopy } from '@douyinfe/semi-icons';
+import { IconUser, IconKey, IconCreditCard, IconActivity, IconHistory, IconRefresh, IconCopy } from '@douyinfe/semi-icons';
 import axios from 'axios';
 import { useAuth } from '../auth/AuthContext.jsx';
 
@@ -19,9 +19,6 @@ export function MePage() {
   const [creditTxns, setCreditTxns] = useState([]);
   const [creditLoading, setCreditLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
-  const [checkInStatus, setCheckInStatus] = useState(null);
-  const [checkInLoading, setCheckInLoading] = useState(false);
-  const [checkInActionLoading, setCheckInActionLoading] = useState(false);
 
   const authHeaders = useMemo(
     () => (token ? { Authorization: `Bearer ${token}` } : undefined),
@@ -111,50 +108,6 @@ export function MePage() {
     }
   }, [authHeaders, token]);
 
-  const fetchCheckInStatus = useCallback(async () => {
-    if (!token) return;
-    setCheckInLoading(true);
-    try {
-      const res = await axios.get('/me/check_in/status', { headers: authHeaders });
-      setCheckInStatus(res.data);
-    } catch (err) {
-      console.error('fetch check-in status failed', err);
-      Toast.error('获取签到状态失败');
-    } finally {
-      setCheckInLoading(false);
-    }
-  }, [authHeaders, token]);
-
-  const handleCheckIn = useCallback(async () => {
-    if (!token) return;
-    setCheckInActionLoading(true);
-    try {
-      const res = await axios.post('/me/check_in', {}, { headers: authHeaders });
-      setCheckInStatus((prev) => ({
-        ...prev,
-        checked_in_today: true,
-        today_reward: res.data.reward,
-        streak: res.data.streak,
-        credits: res.data.credits,
-        recent_logs: res.data.recent_logs,
-        config: res.data.config || prev?.config || null,
-      }));
-      Toast.success(`签到成功！获得 ${res.data.reward} 积分`);
-      await reloadUser();
-      await fetchCreditTransactions();
-    } catch (err) {
-      if (err?.response?.data?.error === 'already_checked_in') {
-        setCheckInStatus((prev) => prev ? { ...prev, checked_in_today: true } : prev);
-        Toast.warning('今日已签到');
-      } else {
-        console.error('check-in failed', err);
-        Toast.error('签到失败');
-      }
-    } finally {
-      setCheckInActionLoading(false);
-    }
-  }, [authHeaders, fetchCreditTransactions, reloadUser, token]);
-
   const refreshProfile = useCallback(async () => {
     if (!token) return;
     setProfileLoading(true);
@@ -175,8 +128,7 @@ export function MePage() {
     fetchApiLogs();
     fetchOperationLogs();
     fetchCreditTransactions();
-    fetchCheckInStatus();
-  }, [token, fetchQuotaUsage, fetchApiLogs, fetchOperationLogs, fetchCreditTransactions, fetchCheckInStatus]);
+  }, [token, fetchQuotaUsage, fetchApiLogs, fetchOperationLogs, fetchCreditTransactions]);
 
   if (!user) {
     return (
@@ -245,62 +197,6 @@ export function MePage() {
                 </div>
               </div>
             )}
-          </Card>
-
-          <Card 
-            title={<Space><IconCalendar /> 每日签到</Space>}
-            headerExtraContent={
-              <Button size='small' onClick={fetchCheckInStatus} loading={checkInLoading} icon={<IconRefresh />} theme='borderless' />
-            }
-            style={{ borderRadius: 10 }}
-          >
-            <div style={{ textAlign: 'center', padding: '16px 0' }}>
-              <Button
-                type='primary'
-                theme='solid'
-                size='large'
-                loading={checkInActionLoading}
-                disabled={checkInStatus?.checked_in_today}
-                onClick={handleCheckIn}
-                style={{ width: '100%', height: 50, fontSize: 18 }}
-              >
-                {checkInStatus?.checked_in_today ? '今日已签到' : '立即签到'}
-              </Button>
-              <div style={{ marginTop: 16, display: 'flex', justifyContent: 'space-around' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <Text type='secondary'>今日积分</Text>
-                  <div style={{ fontSize: 20, fontWeight: 'bold', color: 'var(--semi-color-warning)' }}>
-                    {checkInStatus?.today_reward ?? '-'}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <Text type='secondary'>连续天数</Text>
-                  <div style={{ fontSize: 20, fontWeight: 'bold', color: 'var(--semi-color-primary)' }}>
-                    {checkInStatus?.streak ?? 0}
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <Divider margin='16px 0' />
-            
-            <Title heading={6} style={{ marginBottom: 12 }}>最近签到记录</Title>
-            <Table
-              rowKey={(row) => `${row.check_in_date}-${row.id}`}
-              loading={checkInLoading}
-              dataSource={checkInStatus?.recent_logs || []}
-              pagination={false}
-              size="small"
-              columns={[
-                {
-                  title: '日期',
-                  dataIndex: 'check_in_date',
-                  render: (v) => new Date(v).toLocaleDateString('zh-CN'),
-                },
-                { title: '积分', dataIndex: 'earned_credits' },
-                { title: '连续', dataIndex: 'streak' },
-              ]}
-            />
           </Card>
         </Col>
 

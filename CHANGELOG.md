@@ -8,7 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- ✨ 签到配置管理页面 (`AdminCheckInConfigsPage.jsx`)
 - ✨ 结构化日志模块 (`internal/logger`)
 - ✨ 数据库连接池配置 (`DBConfig`)
 - ✨ Redis 连接验证 (`NewRedisWithPing`)
@@ -25,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - 🐛 修复 `admin_routes.go` 中多处错误处理缺少 `return` 语句的问题
 - 🐛 删除 `server.go` 中重复的注释代码块
+
+### Removed
+- 🗑️ 旧版签到配置管理页面 (`AdminCheckInConfigsPage.jsx`)
 
 ## [1.0.0] - 2025-11-24
 

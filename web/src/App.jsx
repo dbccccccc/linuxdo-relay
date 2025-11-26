@@ -4,11 +4,11 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './modules/auth/AuthContext.jsx';
 import { LoginPage } from './modules/auth/LoginPage.jsx';
 import { MePage } from './modules/me/MePage.jsx';
+import { CheckInPage } from './modules/checkin/CheckInPage.jsx';
 import { AdminChannelsPage } from './modules/admin/AdminChannelsPage.jsx';
 import { AdminUsersPage } from './modules/admin/AdminUsersPage.jsx';
 import { AdminQuotaRulesPage } from './modules/admin/AdminQuotaRulesPage.jsx';
 import { AdminCreditRulesPage } from './modules/admin/AdminCreditRulesPage.jsx';
-import { AdminCheckInConfigsPage } from './modules/admin/AdminCheckInConfigsPage.jsx';
 import { AdminLogsPage } from './modules/admin/AdminLogsPage.jsx';
 import { AdminStatsPage } from './modules/admin/AdminStatsPage.jsx';
 import { useSetupStatus } from './modules/setup/useSetupStatus.js';
@@ -41,6 +41,7 @@ export default function App() {
             <MainLayout>
               <Routes>
                 <Route path='/me' element={<MePage />} />
+                <Route path='/check-in' element={<CheckInPage />} />
                 <Route
                   path='/admin/users'
                   element={isAdmin ? <AdminUsersPage /> : <Navigate to="/me" replace />}
@@ -56,10 +57,6 @@ export default function App() {
                 <Route
                   path='/admin/credit_rules'
                   element={isAdmin ? <AdminCreditRulesPage /> : <Navigate to="/me" replace />}
-                />
-                <Route
-                  path='/admin/check_in_configs'
-                  element={isAdmin ? <AdminCheckInConfigsPage /> : <Navigate to="/me" replace />}
                 />
                 <Route
                   path='/admin/logs'

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"linuxdo-relay/internal/models"
 )
@@ -51,23 +52,43 @@ func validateModelUniqueness(app *AppContext, excludeChannelID uint, newModels [
 	return nil
 }
 
-func validCheckInConfig(cfg *models.CheckInConfig) bool {
-	if cfg == nil {
-		return false
+func validateRewardOptionsPayload(items []models.CheckInRewardOption) error {
+	if len(items) == 0 {
+		return errors.New("at least one reward option is required")
 	}
-	if cfg.Level <= 0 {
-		return false
+	total := 0
+	for idx := range items {
+		item := &items[idx]
+		item.Label = strings.TrimSpace(item.Label)
+		if item.Label == "" || item.Credits <= 0 || item.Probability <= 0 {
+			return fmt.Errorf("invalid reward option at index %d", idx)
+		}
+		if item.Color == "" {
+			item.Color = "#FFD93D"
+		}
+		if item.SortOrder != idx {
+			item.SortOrder = idx
+		}
+		total += item.Probability
 	}
-	if cfg.BaseReward <= 0 || cfg.DecayThreshold <= 0 {
-		return false
+	if total <= 0 {
+		return errors.New("reward probabilities must be positive")
 	}
-	if cfg.MinMultiplierPercent <= 0 {
-		cfg.MinMultiplierPercent = 10
+	return nil
+}
+
+func validateDecayRulesPayload(items []models.CheckInDecayRule) error {
+	for idx := range items {
+		item := &items[idx]
+		if item.MultiplierPercent <= 0 || item.MultiplierPercent > 100 {
+			return fmt.Errorf("invalid multiplier at index %d", idx)
+		}
+		if item.Threshold < 0 {
+			return fmt.Errorf("invalid threshold at index %d", idx)
+		}
+		item.SortOrder = idx
 	}
-	if cfg.MinMultiplierPercent > 100 {
-		cfg.MinMultiplierPercent = 100
-	}
-	return true
+	return nil
 }
 
 // RegisterAdminRoutes registers admin-only management APIs.
@@ -243,71 +264,80 @@ func RegisterAdminRoutes(r *gin.RouterGroup, app *AppContext) {
 		c.Status(http.StatusNoContent)
 	})
 
-	admin.GET("/check_in_configs", func(c *gin.Context) {
-		var configs []models.CheckInConfig
-		if err := app.DB.Order("level ASC").Find(&configs).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list check-in configs"})
+	admin.GET("/check_in/reward_options", func(c *gin.Context) {
+		var options []models.CheckInRewardOption
+		if err := app.DB.Order("sort_order ASC, id ASC").Find(&options).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list reward options"})
 			return
 		}
-		c.JSON(http.StatusOK, configs)
+		c.JSON(http.StatusOK, gin.H{"items": options})
 	})
 
-	admin.POST("/check_in_configs", func(c *gin.Context) {
-		var in models.CheckInConfig
-		if err := c.ShouldBindJSON(&in); err != nil {
+	admin.POST("/check_in/reward_options", func(c *gin.Context) {
+		var payload struct {
+			Items []models.CheckInRewardOption `json:"items"`
+		}
+		if err := c.ShouldBindJSON(&payload); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 			return
 		}
-		if !validCheckInConfig(&in) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid check-in config fields"})
+		if err := validateRewardOptionsPayload(payload.Items); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		if err := app.DB.Create(&in).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create check-in config"})
+		err := app.DB.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Exec("DELETE FROM check_in_reward_options").Error; err != nil {
+				return err
+			}
+			for idx := range payload.Items {
+				payload.Items[idx].ID = 0
+				payload.Items[idx].SortOrder = idx
+			}
+			return tx.Create(&payload.Items).Error
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save reward options"})
 			return
 		}
-		c.JSON(http.StatusOK, in)
+		c.JSON(http.StatusOK, gin.H{"items": payload.Items})
 	})
 
-	admin.PUT("/check_in_configs/:id", func(c *gin.Context) {
-		idStr := c.Param("id")
-		id, err := strconv.ParseUint(idStr, 10, 64)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+	admin.GET("/check_in/decay_rules", func(c *gin.Context) {
+		var rules []models.CheckInDecayRule
+		if err := app.DB.Order("sort_order ASC, threshold ASC").Find(&rules).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list decay rules"})
 			return
 		}
-		var cfg models.CheckInConfig
-		if err := app.DB.First(&cfg, id).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "check-in config not found"})
-			return
+		c.JSON(http.StatusOK, gin.H{"items": rules})
+	})
+
+	admin.POST("/check_in/decay_rules", func(c *gin.Context) {
+		var payload struct {
+			Items []models.CheckInDecayRule `json:"items"`
 		}
-		if err := c.ShouldBindJSON(&cfg); err != nil {
+		if err := c.ShouldBindJSON(&payload); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 			return
 		}
-		if !validCheckInConfig(&cfg) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid check-in config fields"})
+		if err := validateDecayRulesPayload(payload.Items); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		if err := app.DB.Save(&cfg).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update check-in config"})
-			return
-		}
-		c.JSON(http.StatusOK, cfg)
-	})
-
-	admin.DELETE("/check_in_configs/:id", func(c *gin.Context) {
-		idStr := c.Param("id")
-		id, err := strconv.ParseUint(idStr, 10, 64)
+		err := app.DB.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Exec("DELETE FROM check_in_decay_rules").Error; err != nil {
+				return err
+			}
+			for idx := range payload.Items {
+				payload.Items[idx].ID = 0
+				payload.Items[idx].SortOrder = idx
+			}
+			return tx.Create(&payload.Items).Error
+		})
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save decay rules"})
 			return
 		}
-		if err := app.DB.Delete(&models.CheckInConfig{}, id).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete check-in config"})
-			return
-		}
-		c.Status(http.StatusNoContent)
+		c.JSON(http.StatusOK, gin.H{"items": payload.Items})
 	})
 
 	admin.POST("/quota_rules", func(c *gin.Context) {
