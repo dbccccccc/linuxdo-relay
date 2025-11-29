@@ -3,5 +3,4 @@ web/dist
 /.env
 /.env.local
 /.exe
-/runtimeconfig/
 docker-compose.relay-only.yml

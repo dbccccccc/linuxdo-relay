@@ -45,10 +45,6 @@ func isAPIRoute(path string) bool {
 }
 
 func SetupRoutes(r *gin.Engine, app *AppContext) {
-	r.GET("/setup/status", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"mode": "ready"})
-	})
-
 	// health check
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})

@@ -5,6 +5,8 @@ import (
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+
+	"linuxdo-relay/internal/models"
 )
 
 // DBConfig holds database connection pool settings.
@@ -27,16 +29,6 @@ func DefaultDBConfig() DBConfig {
 
 type DB struct {
 	*gorm.DB
-}
-
-// NewDB creates a new DB connection with default pool settings.
-// Panics on failure - use OpenDB for error handling.
-func NewDB(dsn string) *DB {
-	db, err := OpenDB(dsn)
-	if err != nil {
-		panic("open postgres: " + err.Error())
-	}
-	return db
 }
 
 // OpenDB creates a new DB connection with default pool settings.
@@ -76,6 +68,23 @@ func OpenDBWithConfig(dsn string, cfg DBConfig) (*DB, error) {
 	}
 
 	return &DB{DB: gdb}, nil
+}
+
+// AutoMigrate runs GORM auto migration for all models.
+func (db *DB) AutoMigrate() error {
+	return db.DB.AutoMigrate(
+		&models.User{},
+		&models.Channel{},
+		&models.QuotaRule{},
+		&models.ModelCreditRule{},
+		&models.CreditTransaction{},
+		&models.APILog{},
+		&models.OperationLog{},
+		&models.LoginLog{},
+		&models.CheckInLog{},
+		&models.CheckInRewardOption{},
+		&models.CheckInDecayRule{},
+	)
 }
 
 func (db *DB) Close() error {

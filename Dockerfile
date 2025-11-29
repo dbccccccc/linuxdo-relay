@@ -52,12 +52,8 @@ COPY --from=backend-builder /linuxdo-relay /app/linuxdo-relay
 # Copy frontend from frontend builder
 COPY --from=frontend-builder /app/dist /app/web/dist
 
-# Copy migrations
-COPY migrations /app/migrations
-
-# Prepare runtime directories and change ownership
-RUN mkdir -p /app/runtimeconfig && \
-    chown -R app:app /app
+# Change ownership
+RUN chown -R app:app /app
 
 # Run as non-root user
 USER app
