@@ -12,6 +12,9 @@ import (
 	"linuxdo-relay/internal/storage"
 )
 
+// Version is set at build time via -ldflags
+var Version = "dev"
+
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
@@ -47,6 +50,7 @@ func main() {
 		Redis:     redisClient,
 		OAuth:     oauthCfg,
 		JWTSecret: cfg.JWTSecret,
+		Version:   Version,
 	}
 
 	r := gin.Default()

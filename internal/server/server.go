@@ -24,6 +24,7 @@ type AppContext struct {
 	Redis     *storage.Redis
 	OAuth     *oauth2.Config
 	JWTSecret string
+	Version   string
 }
 
 // isAPIRoute checks if the path is an API route
@@ -45,9 +46,9 @@ func isAPIRoute(path string) bool {
 }
 
 func SetupRoutes(r *gin.Engine, app *AppContext) {
-	// health check
+	// health check with version info
 	r.GET("/healthz", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
+		c.JSON(200, gin.H{"status": "ok", "version": app.Version})
 	})
 
 	// serve static frontend files

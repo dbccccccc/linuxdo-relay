@@ -11,9 +11,13 @@ import { AdminCreditRulesPage } from './modules/admin/AdminCreditRulesPage.jsx';
 import { AdminLogsPage } from './modules/admin/AdminLogsPage.jsx';
 import { AdminStatsPage } from './modules/admin/AdminStatsPage.jsx';
 import MainLayout from './layouts/MainLayout.jsx';
+import { useVersionCheck } from './hooks/useVersionCheck.js';
 
 export default function App() {
   const { user, isAdmin } = useAuth();
+  
+  // Check for version updates on every route change
+  useVersionCheck();
 
   return (
     <Routes>
