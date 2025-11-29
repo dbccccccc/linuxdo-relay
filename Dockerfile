@@ -13,9 +13,12 @@ RUN go mod download
 # Copy source code
 COPY . .
 
+# Build argument for version
+ARG VERSION=dev
+
 # Build binary
 RUN CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags="-s -w" \
+    -ldflags="-s -w -X main.Version=${VERSION}" \
     -o /linuxdo-relay \
     ./cmd/server
 
@@ -35,7 +38,7 @@ COPY web/ ./
 RUN npm run build
 
 # Stage 3: Final image
-FROM alpine:latest
+FROM alpine:3.19
 
 # Install runtime dependencies
 RUN apk add --no-cache ca-certificates tzdata
