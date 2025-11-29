@@ -131,10 +131,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download all artifacts
+      - name: Download backend artifacts
         uses: actions/download-artifact@v4
         with:
+          pattern: backend-*
           path: ./artifacts
+
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend
+          path: ./artifacts/frontend
 
       - name: Prepare release assets
         run: |
