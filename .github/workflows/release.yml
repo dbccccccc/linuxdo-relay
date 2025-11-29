@@ -139,8 +139,6 @@ jobs:
           find artifacts/backend-* -type f -exec cp {} release/ \;
           # Frontend
           cp artifacts/frontend/linuxdo-relay-web.tar.gz release/
-          # Migrations
-          tar -czf release/migrations.tar.gz migrations/
           # Docker compose
           cp docker-compose.yml release/
           # Create checksums
@@ -166,9 +164,6 @@ jobs:
           #### 前端静态文件
           - \`linuxdo-relay-web.tar.gz\`: 前端构建产物
 
-          #### 数据库迁移
-          - \`migrations.tar.gz\`: 数据库迁移脚本
-
           ### 🐳 Docker 镜像
 
           \`\`\`bash
@@ -181,16 +176,8 @@ jobs:
           #### 使用二进制文件
 
           1. 下载对应平台的二进制文件
-          2. 下载 \`migrations.tar.gz\` 并解压
-          3. 配置环境变量（参考 README.md）
-          4. 初始化数据库：
-             \`\`\`bash
-             psql -d linuxdo_relay -f migrations/001_init.sql
-             psql -d linuxdo_relay -f migrations/002_logs.sql
-             psql -d linuxdo_relay -f migrations/003_credits.sql
-             psql -d linuxdo_relay -f migrations/004_check_in.sql
-             \`\`\`
-          5. 运行程序：\`./linuxdo-relay-linux-amd64\`
+          2. 配置环境变量（参考 README.md）
+          3. 运行程序：\`./linuxdo-relay-linux-amd64\`（自动迁移数据库）
 
           #### 使用 Docker Compose
 
