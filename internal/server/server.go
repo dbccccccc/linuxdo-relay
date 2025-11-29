@@ -60,14 +60,16 @@ func SetupRoutes(r *gin.Engine, app *AppContext) {
 	// auth routes (LinuxDo OAuth)
 	RegisterAuthRoutes(r, app)
 
-	// authenticated routes
-	authGroup := r.Group("/")
-	authGroup.Use(AuthMiddleware(app))
-	authGroup.Use(QuotaMiddleware(app))
-	authGroup.Use(CreditMiddleware(app))
+	// ========================================
+	// JWT-only routes: user management endpoints
+	// These endpoints require web login (JWT) and do not accept API keys
+	// ========================================
+	jwtGroup := r.Group("/")
+	jwtGroup.Use(AuthMiddleware(app))
+	jwtGroup.Use(JWTOnlyMiddleware())
 
 	// user info
-	authGroup.GET("/me", func(c *gin.Context) {
+	jwtGroup.GET("/me", func(c *gin.Context) {
 		uidVal, exists := c.Get("user_id")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "no user in context"})
@@ -97,7 +99,7 @@ func SetupRoutes(r *gin.Engine, app *AppContext) {
 		})
 	})
 
-	authGroup.GET("/me/credit_transactions", func(c *gin.Context) {
+	jwtGroup.GET("/me/credit_transactions", func(c *gin.Context) {
 		uidVal, exists := c.Get("user_id")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "no user in context"})
@@ -137,7 +139,7 @@ func SetupRoutes(r *gin.Engine, app *AppContext) {
 		c.JSON(http.StatusOK, gin.H{"total": total, "items": txns})
 	})
 
-	authGroup.GET("/me/check_in/config", func(c *gin.Context) {
+	jwtGroup.GET("/me/check_in/config", func(c *gin.Context) {
 		uidVal, exists := c.Get("user_id")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "no user in context"})
@@ -175,7 +177,7 @@ func SetupRoutes(r *gin.Engine, app *AppContext) {
 		})
 	})
 
-	authGroup.GET("/me/check_in/status", func(c *gin.Context) {
+	jwtGroup.GET("/me/check_in/status", func(c *gin.Context) {
 		uidVal, exists := c.Get("user_id")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "no user in context"})
@@ -214,7 +216,7 @@ func SetupRoutes(r *gin.Engine, app *AppContext) {
 		})
 	})
 
-	authGroup.POST("/me/check_in/spin", func(c *gin.Context) {
+	jwtGroup.POST("/me/check_in/spin", func(c *gin.Context) {
 		uidVal, exists := c.Get("user_id")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "no user in context"})
@@ -259,12 +261,7 @@ func SetupRoutes(r *gin.Engine, app *AppContext) {
 	})
 
 	// regenerate per-user API key (JWT-only, for web UI).
-	authGroup.POST("/me/api_key/regenerate", func(c *gin.Context) {
-		methodVal, _ := c.Get("auth_method")
-		if m, _ := methodVal.(string); m != "jwt" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "api key auth not allowed for this endpoint"})
-			return
-		}
+	jwtGroup.POST("/me/api_key/regenerate", func(c *gin.Context) {
 
 		uidVal, exists := c.Get("user_id")
 		if !exists {
@@ -308,7 +305,7 @@ func SetupRoutes(r *gin.Engine, app *AppContext) {
 	})
 
 	// User dashboard: quota usage and logs
-	authGroup.GET("/me/quota_usage", func(c *gin.Context) {
+	jwtGroup.GET("/me/quota_usage", func(c *gin.Context) {
 		uidVal, exists := c.Get("user_id")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "no user in context"})
@@ -357,7 +354,7 @@ func SetupRoutes(r *gin.Engine, app *AppContext) {
 		c.JSON(http.StatusOK, gin.H{"items": res})
 	})
 
-	authGroup.GET("/me/api_logs", func(c *gin.Context) {
+	jwtGroup.GET("/me/api_logs", func(c *gin.Context) {
 		uidVal, exists := c.Get("user_id")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "no user in context"})
@@ -404,7 +401,7 @@ func SetupRoutes(r *gin.Engine, app *AppContext) {
 		c.JSON(http.StatusOK, gin.H{"total": total, "items": logs})
 	})
 
-	authGroup.GET("/me/operation_logs", func(c *gin.Context) {
+	jwtGroup.GET("/me/operation_logs", func(c *gin.Context) {
 		uidVal, exists := c.Get("user_id")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "no user in context"})
@@ -450,9 +447,21 @@ func SetupRoutes(r *gin.Engine, app *AppContext) {
 		c.JSON(http.StatusOK, gin.H{"total": total, "items": logs})
 	})
 
-	// admin & relay routes (protected)
-	RegisterAdminRoutes(authGroup, app)
-	RegisterRelayRoutes(authGroup, app)
+	// ========================================
+	// Admin routes: JWT-only, admin role required
+	// ========================================
+	RegisterAdminRoutes(jwtGroup, app)
+
+	// ========================================
+	// API Key-only routes: LLM relay endpoints
+	// These endpoints require API key and do not accept JWT
+	// ========================================
+	apiKeyGroup := r.Group("/")
+	apiKeyGroup.Use(AuthMiddleware(app))
+	apiKeyGroup.Use(APIKeyOnlyMiddleware())
+	apiKeyGroup.Use(QuotaMiddleware(app))
+	apiKeyGroup.Use(CreditMiddleware(app))
+	RegisterRelayRoutes(apiKeyGroup, app)
 
 	// SPA fallback: send other GET requests to the built index.html so React Router can handle them
 	r.NoRoute(func(c *gin.Context) {
